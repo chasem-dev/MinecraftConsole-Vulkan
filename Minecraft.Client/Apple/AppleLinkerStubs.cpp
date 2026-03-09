@@ -35,8 +35,9 @@ static int  g_appleHoveredControlId = -1;
 static int  g_appleHoveredScene     = -1;  // EUIScene as int
 static int  g_mainMenuSelectedIdx   = 0;   // keyboard-tracked selection (0-5)
 static int  g_loadOrJoinSelectedIdx = 0;   // keyboard-tracked selection for LoadOrJoin
-static int  g_createWorldSelectedIdx = 1;  // keyboard-tracked selection for CreateWorld (0=GameMode, 1=CreateWorld)
+static int  g_createWorldSelectedIdx = 3;  // keyboard-tracked selection for CreateWorld (0=Name, 1=Seed, 2=GameMode, 3=CreateWorld)
 static bool g_createWorldSurvival  = true; // mirrors m_bGameModeSurvival for draw code
+static int  g_pauseMenuSelectedIdx  = 0;   // keyboard-tracked selection for PauseMenu (0-2)
 
 // Check if GLFW cursor is over a game-space rectangle.
 // (gx,gy,gw,gh) in game-space coords, scale = GUI scale, swfW/swfH = SWF pixel dims.
@@ -62,6 +63,8 @@ int  AppleMouse_GetCreateWorldSelected() { return g_createWorldSelectedIdx; }
 void AppleMouse_SetCreateWorldSelected(int idx) { g_createWorldSelectedIdx = idx; }
 bool AppleMouse_GetCreateWorldSurvival() { return g_createWorldSurvival; }
 void AppleMouse_SetCreateWorldSurvival(bool val) { g_createWorldSurvival = val; }
+int  AppleMouse_GetPauseMenuSelected() { return g_pauseMenuSelectedIdx; }
+void AppleMouse_SetPauseMenuSelected(int idx) { g_pauseMenuSelectedIdx = idx; }
 
 // ---------------------------------------------------------------------------
 // Iggy (RAD UI library) -- C linkage stubs
@@ -1079,7 +1082,7 @@ static void drawLoadOrJoinScene(Tesselator *t, Textures *textures, Font *font, f
 }
 
 // ---- CreateWorldMenu scene ----
-static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, float w, float h)
+static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, float w, float h, UIScene_CreateWorldMenu *scene)
 {
   const float s = floorf(h / 270.0f);
   const float gw = w / s, gh = h / s;
@@ -1094,20 +1097,44 @@ static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, 
   const wstring title = L"Create New World";
   font->drawShadow(title, (int)((gw - (float)font->width(title)) * 0.5f), 20, 0xFFFFFF);
 
-  const wstring nameLabel = L"World Name: My World";
-  const wstring seedLabel = L"Seed: (Random)";
-  font->drawShadow(nameLabel, (int)((gw - (float)font->width(nameLabel)) * 0.5f), 48, 0xA0A0A0);
-  font->drawShadow(seedLabel, (int)((gw - (float)font->width(seedLabel)) * 0.5f), 60, 0xA0A0A0);
+  const wstring worldName = (scene != nullptr && !scene->appleGetWorldName().empty())
+    ? scene->appleGetWorldName()
+    : L"My World";
+  const wstring seedValue = (scene != nullptr && !scene->appleGetSeed().empty())
+    ? scene->appleGetSeed()
+    : L"(Random)";
+
+  const wstring titleName = L"World Name";
+  const wstring titleSeed = L"Seed";
+  font->drawShadow(titleName, (int)((gw - (float)font->width(titleName)) * 0.5f), 46, 0xA0A0A0);
+  font->drawShadow(titleSeed, (int)((gw - (float)font->width(titleSeed)) * 0.5f), 70, 0xA0A0A0);
+
+  extern bool AppleInput_IsKeyboardActive();
+  extern const wchar_t *AppleInput_GetKeyboardTitle();
+  extern const wchar_t *AppleInput_GetKeyboardText();
+  if (AppleInput_IsKeyboardActive())
+  {
+    const wstring editingLine = wstring(AppleInput_GetKeyboardTitle()) + L": " + AppleInput_GetKeyboardText() + L"_";
+    font->drawShadow(editingLine, (int)((gw - (float)font->width(editingLine)) * 0.5f), 94, 0xFFF0A0);
+    font->drawShadow(L"Enter: Confirm   Esc: Cancel", (int)((gw - (float)font->width(L"Enter: Confirm   Esc: Cancel")) * 0.5f), 106, 0x808080);
+  }
   glPopMatrix();
 
   const int btnW = 200, btnH = 20;
   const float btnX = (gw - (float)btnW) * 0.5f;
-  const float startY = gh * 0.38f;
+  const float startY = gh * 0.46f;
   const float spacing = 24.0f;
-  static const int NUM_CW_BUTTONS = 2;
+  static const int NUM_CW_BUTTONS = 4;
 
+  const wstring worldNameLabel = L"World Name: " + worldName;
+  const wstring seedLabel = L"Seed: " + seedValue;
   const wchar_t *modeLabel = g_createWorldSurvival ? L"Game Mode: Survival" : L"Game Mode: Creative";
-  const wchar_t *btnLabels[NUM_CW_BUTTONS] = { modeLabel, L"Create World" };
+  const wstring btnLabels[NUM_CW_BUTTONS] = {
+    worldNameLabel,
+    seedLabel,
+    modeLabel,
+    L"Create World"
+  };
 
   int mouseHoverIdx = -1;
   for (int i = 0; i < NUM_CW_BUTTONS; ++i)
@@ -1130,7 +1157,7 @@ static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, 
   {
     const float by = startY + (float)i * spacing;
     int yImg = (i == g_createWorldSelectedIdx) ? 2 : 1;
-    drawRealButton(t, textures, font, btnX, by, btnW, btnH, wstring(btnLabels[i]), s, yImg);
+    drawRealButton(t, textures, font, btnX, by, btnW, btnH, btnLabels[i], s, yImg);
   }
 
   glEnable(GL_TEXTURE_2D);
@@ -1206,6 +1233,86 @@ static void drawFullscreenProgressScene(Tesselator *t, Textures *textures, Font 
   glDisable(GL_TEXTURE_2D);
 }
 
+// ---------------------------------------------------------------------------
+// Pause Menu scene drawing (Apple replacement for Iggy-based PauseMenu)
+// ---------------------------------------------------------------------------
+static void drawPauseMenuScene(Tesselator *t, Textures *textures, Font *font, float w, float h)
+{
+  const float s = floorf(h / 270.0f);
+  const float gw = w / s, gh = h / s;
+
+  if (textures == nullptr || font == nullptr) return;
+
+  // Semi-transparent dark overlay
+  glDisable(GL_TEXTURE_2D);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  t->begin();
+  t->color(0x00, 0x00, 0x00, 0xB0);
+  t->vertexUV(0.0f, h,    0.0f, 0.0f, 0.0f);
+  t->vertexUV(w,    h,    0.0f, 0.0f, 0.0f);
+  t->vertexUV(w,    0.0f, 0.0f, 0.0f, 0.0f);
+  t->vertexUV(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+  t->end();
+
+  // Title: "Game Menu"
+  glEnable(GL_TEXTURE_2D);
+  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+  {
+    const wstring title = L"Game Menu";
+    const float titleX = (gw - (float)font->width(title)) * 0.5f;
+    const float titleY = gh * 0.22f;
+    glPushMatrix();
+    glScalef(s, s, 1.0f);
+    font->drawShadow(title, (int)titleX, (int)titleY, 0xFFFFFF);
+    glPopMatrix();
+  }
+
+  // Buttons: Resume, Help & Options, Save and Quit to Title
+  static const int NUM_BUTTONS = 3;
+  static const wchar_t *labels[] = {
+    L"Back to Game",
+    L"Help & Options",
+    L"Save and Quit to Title",
+  };
+  // Map to PauseMenu button IDs: 0=Resume, 1=H&O, 5=Exit
+  static const int controlIds[] = { 0, 1, 5 };
+
+  const int btnW = 200, btnH = 20;
+  const float btnX = (gw - (float)btnW) * 0.5f;
+  const float startY = gh * 0.35f;
+  const float spacing = 24.0f;
+
+  // Check mouse hover
+  int mouseHoverIdx = -1;
+  for (int i = 0; i < NUM_BUTTONS; ++i)
+  {
+    const float by = startY + (float)i * spacing;
+    if (isMouseOverGameRect(btnX, by, (float)btnW, (float)btnH, s, w, h))
+    {
+      mouseHoverIdx = i;
+      break;
+    }
+  }
+
+  if (mouseHoverIdx >= 0)
+  {
+    g_pauseMenuSelectedIdx = mouseHoverIdx;
+    g_appleHoveredControlId = controlIds[mouseHoverIdx];
+    g_appleHoveredScene = (int)eUIScene_PauseMenu;
+  }
+
+  // Draw buttons
+  for (int i = 0; i < NUM_BUTTONS; ++i)
+  {
+    const float by = startY + (float)i * spacing;
+    int yImg = 1;  // normal
+    if (i == g_pauseMenuSelectedIdx) yImg = 2;  // hovered/selected
+    drawRealButton(t, textures, font, btnX, by, btnW, btnH,
+                   wstring(labels[i]), s, yImg);
+  }
+}
+
 void IggyPlayerDraw(Iggy *player)
 {
   FakeIggyPlayer *fake = toFakePlayer(player);
@@ -1251,7 +1358,8 @@ void IggyPlayerDraw(Iggy *player)
         sceneType == eUIScene_SettingsMenu ||
         sceneType == eUIScene_SettingsOptionsMenu ||
         sceneType == eUIScene_LoadOrJoinMenu ||
-        sceneType == eUIScene_CreateWorldMenu)
+        sceneType == eUIScene_CreateWorldMenu ||
+        sceneType == eUIScene_PauseMenu)
     {
       g_appleHoveredControlId = -1;
       g_appleHoveredScene = -1;
@@ -1284,11 +1392,15 @@ void IggyPlayerDraw(Iggy *player)
       break;
 
     case eUIScene_CreateWorldMenu:
-      drawCreateWorldScene(t, textures, font, w, h);
+      drawCreateWorldScene(t, textures, font, w, h, static_cast<UIScene_CreateWorldMenu *>(scene));
       break;
 
     case eUIScene_FullscreenProgress:
       drawFullscreenProgressScene(t, textures, font, w, h);
+      break;
+
+    case eUIScene_PauseMenu:
+      drawPauseMenuScene(t, textures, font, w, h);
       break;
 
     case eUIComponent_Panorama:
@@ -1655,7 +1767,14 @@ C4JStorage::ESaveGameState C4JStorage::DeleteSaveData(PSAVE_INFO, int(*)(LPVOID,
 C4JStorage::ESaveGameState C4JStorage::DoesSaveExist(bool *pbExists) { if (pbExists) *pbExists = false; return ESaveGame_Idle; }
 bool C4JStorage::EnoughSpaceForAMinSaveGame() { return true; }
 C4JStorage::EDLCStatus C4JStorage::GetDLCOffers(int, int(*)(LPVOID, int, DWORD, int), LPVOID, DWORD) { return EDLC_NoOffers; }
-C4JStorage::EDLCStatus C4JStorage::GetInstalledDLC(int, int(*)(LPVOID, int, int), LPVOID) { return EDLC_NoInstalledDLC; }
+C4JStorage::EDLCStatus C4JStorage::GetInstalledDLC(int iPad, int(*callback)(LPVOID, int, int), LPVOID param)
+{
+    if (callback != nullptr)
+    {
+        callback(param, 0, iPad);
+    }
+    return EDLC_NoInstalledDLC;
+}
 void C4JStorage::GetMountedDLCFileList(const char *, std::vector<std::string> &) {}
 std::string C4JStorage::GetMountedPath(std::string) { return ""; }
 XMARKETPLACE_CONTENTOFFER_INFO &C4JStorage::GetOffer(DWORD) { static XMARKETPLACE_CONTENTOFFER_INFO dummy = {}; return dummy; }
@@ -1841,26 +1960,49 @@ __attribute__((used)) void (*_sm_HasFinished)(ShutdownManager::EThreadId) = &Shu
 NetworkPlayerXbox::NetworkPlayerXbox(IQNetPlayer *qnetPlayer)
     : m_qnetPlayer(qnetPlayer), m_pSocket(nullptr) {}
 
-unsigned char NetworkPlayerXbox::GetSmallId() { return 0; }
-void NetworkPlayerXbox::SendData(INetworkPlayer *, const void *, int, bool) {}
-bool NetworkPlayerXbox::IsSameSystem(INetworkPlayer *) { return false; }
+unsigned char NetworkPlayerXbox::GetSmallId() { return m_qnetPlayer != nullptr ? m_qnetPlayer->GetSmallId() : 0; }
+void NetworkPlayerXbox::SendData(INetworkPlayer *player, const void *data, int dataSize, bool lowPriority)
+{
+  if (m_qnetPlayer == nullptr || player == nullptr || data == nullptr || dataSize <= 0)
+  {
+    return;
+  }
+
+  NetworkPlayerXbox *otherPlayer = static_cast<NetworkPlayerXbox *>(player);
+  IQNetPlayer *otherQnetPlayer = otherPlayer != nullptr ? otherPlayer->GetQNetPlayer() : nullptr;
+  if (otherQnetPlayer != nullptr)
+  {
+    m_qnetPlayer->SendData(otherQnetPlayer, data, (DWORD)dataSize, lowPriority ? QNET_SENDDATA_LOW_PRIORITY : 0);
+  }
+}
+bool NetworkPlayerXbox::IsSameSystem(INetworkPlayer *player)
+{
+  if (m_qnetPlayer == nullptr || player == nullptr)
+  {
+    return false;
+  }
+
+  NetworkPlayerXbox *otherPlayer = static_cast<NetworkPlayerXbox *>(player);
+  IQNetPlayer *otherQnetPlayer = otherPlayer != nullptr ? otherPlayer->GetQNetPlayer() : nullptr;
+  return otherQnetPlayer != nullptr ? m_qnetPlayer->IsSameSystem(otherQnetPlayer) : false;
+}
 int NetworkPlayerXbox::GetSendQueueSizeBytes(INetworkPlayer *, bool) { return 0; }
 int NetworkPlayerXbox::GetSendQueueSizeMessages(INetworkPlayer *, bool) { return 0; }
-int NetworkPlayerXbox::GetCurrentRtt() { return 0; }
-bool NetworkPlayerXbox::IsHost() { return false; }
+int NetworkPlayerXbox::GetCurrentRtt() { return m_qnetPlayer != nullptr ? (int)m_qnetPlayer->GetCurrentRtt() : 0; }
+bool NetworkPlayerXbox::IsHost() { return m_qnetPlayer != nullptr ? m_qnetPlayer->IsHost() : false; }
 bool NetworkPlayerXbox::IsGuest() { return false; }
-bool NetworkPlayerXbox::IsLocal() { return false; }
-int NetworkPlayerXbox::GetSessionIndex() { return 0; }
+bool NetworkPlayerXbox::IsLocal() { return m_qnetPlayer != nullptr ? m_qnetPlayer->IsLocal() : false; }
+int NetworkPlayerXbox::GetSessionIndex() { return m_qnetPlayer != nullptr ? m_qnetPlayer->GetSessionIndex() : 0; }
 bool NetworkPlayerXbox::IsTalking() { return false; }
 bool NetworkPlayerXbox::IsMutedByLocalUser(int) { return false; }
-bool NetworkPlayerXbox::HasVoice() { return false; }
-bool NetworkPlayerXbox::HasCamera() { return false; }
-int NetworkPlayerXbox::GetUserIndex() { return 0; }
+bool NetworkPlayerXbox::HasVoice() { return m_qnetPlayer != nullptr ? m_qnetPlayer->HasVoice() : false; }
+bool NetworkPlayerXbox::HasCamera() { return m_qnetPlayer != nullptr ? m_qnetPlayer->HasCamera() : false; }
+int NetworkPlayerXbox::GetUserIndex() { return m_qnetPlayer != nullptr ? m_qnetPlayer->GetUserIndex() : 0; }
 void NetworkPlayerXbox::SetSocket(Socket *pSocket) { m_pSocket = pSocket; }
 Socket *NetworkPlayerXbox::GetSocket() { return m_pSocket; }
-const wchar_t *NetworkPlayerXbox::GetOnlineName() { return L"Player"; }
-std::wstring NetworkPlayerXbox::GetDisplayName() { return L"Player"; }
-PlayerUID NetworkPlayerXbox::GetUID() { return 0; }
+const wchar_t *NetworkPlayerXbox::GetOnlineName() { return m_qnetPlayer != nullptr ? m_qnetPlayer->GetGamertag() : L"Player"; }
+std::wstring NetworkPlayerXbox::GetDisplayName() { return GetOnlineName(); }
+PlayerUID NetworkPlayerXbox::GetUID() { return m_qnetPlayer != nullptr ? m_qnetPlayer->GetXuid() : 0; }
 IQNetPlayer *NetworkPlayerXbox::GetQNetPlayer() { return m_qnetPlayer; }
 
 // ---------------------------------------------------------------------------

@@ -49,6 +49,7 @@ void Socket::Initialise(ServerConnection *serverConnection)
 
 Socket::Socket(bool response)
 {
+	fprintf(stderr, "[NETDBG] Socket local ctor begin this=%p response=%d serverConn=%p hostPlayer=%p\n", this, response ? 1 : 0, s_serverConnection, g_NetworkManager.GetHostPlayer());
 	m_hostServerConnection = true;
 	m_hostLocal = true;
 	if( response )
@@ -58,8 +59,11 @@ Socket::Socket(bool response)
 	else
 	{
 		m_end = SOCKET_CLIENT_END;
+		fprintf(stderr, "[NETDBG] Socket local ctor creating server-side pair this=%p\n", this);
 		Socket *socket = new Socket(1);
+		fprintf(stderr, "[NETDBG] Socket local ctor pair created pair=%p serverConn=%p\n", socket, s_serverConnection);
 		s_serverConnection->NewIncomingSocket(socket);
+		fprintf(stderr, "[NETDBG] Socket local ctor pair queued pair=%p\n", socket);
 	}
 
 	for( int i = 0; i < 2; i++ )
@@ -69,6 +73,7 @@ Socket::Socket(bool response)
 	m_socketClosedEvent = NULL;
 	createdOk = true;
 	networkPlayerSmallId = g_NetworkManager.GetHostPlayer()->GetSmallId();
+	fprintf(stderr, "[NETDBG] Socket local ctor end this=%p end=%d smallId=%u\n", this, m_end, networkPlayerSmallId);
 }
 
 Socket::Socket(INetworkPlayer *player, bool response /* = false*/, bool hostLocal /*= false*/)

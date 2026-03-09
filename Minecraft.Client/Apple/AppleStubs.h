@@ -153,6 +153,12 @@
 #ifndef WAIT_TIMEOUT
 #define WAIT_TIMEOUT   0x00000102L
 #endif
+#ifndef WAIT_ABANDONED
+#define WAIT_ABANDONED 0x00000080L
+#endif
+#ifndef WAIT_FAILED
+#define WAIT_FAILED    0xFFFFFFFFL
+#endif
 #ifndef STILL_ACTIVE
 #define STILL_ACTIVE   259
 #endif

@@ -382,11 +382,38 @@ void UIScene_PauseMenu::handleInput(int iPad, int key, bool repeat, bool pressed
 #ifdef __ORBIS__
 	case ACTION_MENU_TOUCHPAD_PRESS:
 #endif
+#if defined(__APPLE__)
+		if(pressed)
+		{
+			extern int  AppleMouse_GetHoveredControlId();
+			extern int  AppleMouse_GetPauseMenuSelected();
+			int ctrlId = AppleMouse_GetHoveredControlId();
+			if (ctrlId < 0)
+			{
+				// Keyboard navigation: map selection index to button IDs
+				// 0=Resume, 1=H&O, 2=SaveQuit
+				static const int selToCtrl[] = { 0, 1, 5 };
+				int sel = AppleMouse_GetPauseMenuSelected();
+				if (sel >= 0 && sel < 3) ctrlId = selToCtrl[sel];
+			}
+			if (ctrlId >= 0) handlePress((F64)ctrlId, 0);
+		}
+		break;
+#endif
 	case ACTION_MENU_UP:
 	case ACTION_MENU_DOWN:
 		if(pressed)
 		{
+#if defined(__APPLE__)
+			extern int  AppleMouse_GetPauseMenuSelected();
+			extern void AppleMouse_SetPauseMenuSelected(int);
+			int sel = AppleMouse_GetPauseMenuSelected();
+			if (key == ACTION_MENU_UP && sel > 0) sel--;
+			if (key == ACTION_MENU_DOWN && sel < 2) sel++;
+			AppleMouse_SetPauseMenuSelected(sel);
+#else
 			sendInputToMovie(key, repeat, pressed, released);
+#endif
 		}
 		break;
 

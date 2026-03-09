@@ -64,6 +64,9 @@ public:
 	UIScene_CreateWorldMenu(int iPad, void *initData, UILayer *parentLayer);
 	virtual ~UIScene_CreateWorldMenu();
 
+	const wstring &appleGetWorldName() const { return m_worldName; }
+	const wstring &appleGetSeed() const { return m_MoreOptionsParams.seed; }
+
 	virtual void updateTooltips();
 	virtual void updateComponents();
 

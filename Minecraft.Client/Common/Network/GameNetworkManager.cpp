@@ -49,6 +49,8 @@ int CGameNetworkManager::messageQueuePos = 0;
 
 CGameNetworkManager::CGameNetworkManager()
 {
+	m_hServerStoppedEvent = NULL;
+	m_hServerReadyEvent = NULL;
 	m_bInitialised = false;
 	m_bLastDisconnectWasLostRoomOnly = false;
 	m_bFullSessionMessageOnNextSessionChange = false;
@@ -174,6 +176,10 @@ bool CGameNetworkManager::_RunNetworkGame(LPVOID lpParameter)
 	if( g_NetworkManager.IsLeavingGame() ) return false;
 
 	app.SetGameStarted(true);
+	fprintf(stderr, "[NETDBG] _RunNetworkGame set game started host=%d inSession=%d gameplay=%d\n",
+		isHost ? 1 : 0,
+		g_NetworkManager.IsInSession() ? 1 : 0,
+		g_NetworkManager.IsInGameplay() ? 1 : 0);
 
 	// 4J-PB - if this is the trial game, start the trial timer
 	if(!ProfileManager.IsFullVersion())
@@ -191,6 +197,8 @@ bool	CGameNetworkManager::StartNetworkGame(Minecraft *minecraft, LPVOID lpParame
 #ifdef _DURANGO
 	ProfileManager.SetDeferredSignoutEnabled(true);
 #endif
+	MinecraftServer::resetFlags();
+	fprintf(stderr, "[NETDBG] StartNetworkGame reset server flags halted=%d\n", MinecraftServer::serverHalted() ? 1 : 0);
 
 	__int64 seed = 0;
 	if(lpParameter != NULL)
@@ -217,8 +225,10 @@ bool	CGameNetworkManager::StartNetworkGame(Minecraft *minecraft, LPVOID lpParame
 	ServerStoppedCreate(false);
 	if( g_NetworkManager.IsHost() )
 	{
+		fprintf(stderr, "[NETDBG] StartNetworkGame host this=%p global=%p ready=%p stopped=%p\n", this, &g_NetworkManager, m_hServerReadyEvent, m_hServerStoppedEvent);
 		ServerStoppedCreate(true);
 		ServerReadyCreate(true);
+		fprintf(stderr, "[NETDBG] StartNetworkGame host after create this=%p global=%p ready=%p stopped=%p\n", this, &g_NetworkManager, m_hServerReadyEvent, m_hServerStoppedEvent);
 		// Ready to go - create actual networking thread & start hosting
 		C4JThread* thread = new C4JThread(&CGameNetworkManager::ServerThreadProc, lpParameter, "Server", 256 * 1024);
 #if defined __PS3__ || defined __PSVITA__
@@ -230,9 +240,13 @@ bool	CGameNetworkManager::StartNetworkGame(Minecraft *minecraft, LPVOID lpParame
 
 		ServerReadyWait();
 		ServerReadyDestroy();
+		fprintf(stderr, "[NETDBG] After ServerReadyDestroy halted=%d\n", MinecraftServer::serverHalted() ? 1 : 0);
 
 		if( MinecraftServer::serverHalted() ) 
+		{
+			fprintf(stderr, "[NETDBG] StartNetworkGame aborting because serverHalted after ready\n");
 			return false;
+		}
 
 //		printf("Server ready to go!\n");
 	}
@@ -245,6 +259,11 @@ bool	CGameNetworkManager::StartNetworkGame(Minecraft *minecraft, LPVOID lpParame
 	Minecraft *pMinecraft = Minecraft::GetInstance();	
 	// Make sure that we have transitioned through any joining/creating stages and are actually playing the game, so that we know the players should be valid
 	bool changedMessage = false;
+	fprintf(stderr, "[NETDBG] Before ReadyToPlay check readyOrIdle=%d inSession=%d gameplay=%d leaving=%d\n",
+		IsReadyToPlayOrIdle() ? 1 : 0,
+		IsInSession() ? 1 : 0,
+		IsInGameplay() ? 1 : 0,
+		g_NetworkManager.IsLeavingGame() ? 1 : 0);
 	while(!IsReadyToPlayOrIdle())
 	{
 		changedMessage = true;
@@ -256,26 +275,42 @@ bool	CGameNetworkManager::StartNetworkGame(Minecraft *minecraft, LPVOID lpParame
 	{
 		pMinecraft->progressRenderer->progressStagePercentage( 100 );
 	}
+	fprintf(stderr, "[NETDBG] After ReadyToPlay check readyOrIdle=%d inSession=%d gameplay=%d leaving=%d\n",
+		IsReadyToPlayOrIdle() ? 1 : 0,
+		IsInSession() ? 1 : 0,
+		IsInGameplay() ? 1 : 0,
+		g_NetworkManager.IsLeavingGame() ? 1 : 0);
 #endif
 
 	// If we aren't in session, then something bad must have happened - we aren't joining, creating or ready play
 	if(!IsInSession() )
 	{
+		fprintf(stderr, "[NETDBG] StartNetworkGame failing because IsInSession()==0 after ready check\n");
 		MinecraftServer::HaltServer();
 		return false;
 	}
+	fprintf(stderr, "[NETDBG] StartNetworkGame passed IsInSession check DLCPending=%d DLCCompleted=%d leaving=%d\n",
+		app.DLCInstallPending() ? 1 : 0,
+		app.DLCInstallProcessCompleted() ? 1 : 0,
+		g_NetworkManager.IsLeavingGame() ? 1 : 0);
 
 	// 4J Stu - Wait a while to make sure that DLC is loaded. This is the last point before the network communication starts
 	// so the latest we can check this
 	while( !app.DLCInstallProcessCompleted() && app.DLCInstallPending() && !g_NetworkManager.IsLeavingGame() )
 	{
+		fprintf(stderr, "[NETDBG] Waiting for DLC completion pending=%d completed=%d leaving=%d\n",
+			app.DLCInstallPending() ? 1 : 0,
+			app.DLCInstallProcessCompleted() ? 1 : 0,
+			g_NetworkManager.IsLeavingGame() ? 1 : 0);
 		Sleep( 10 );
 	}
 	if( g_NetworkManager.IsLeavingGame() )
 	{
+		fprintf(stderr, "[NETDBG] StartNetworkGame failing because leaving during DLC wait\n");
 		MinecraftServer::HaltServer();
 		return false;
 	}
+	fprintf(stderr, "[NETDBG] StartNetworkGame entering primary connection creation\n");
 
 	// PRIMARY PLAYER
 
@@ -319,8 +354,15 @@ bool	CGameNetworkManager::StartNetworkGame(Minecraft *minecraft, LPVOID lpParame
 		MinecraftServer::HaltServer();
 		return false;
 	}
+	fprintf(stderr, "[NETDBG] Primary connection created host=%d connection=%p createdOk=%d socket=%p user=%d\n",
+		g_NetworkManager.IsHost() ? 1 : 0,
+		connection,
+		connection->createdOk ? 1 : 0,
+		connection->getSocket(),
+		ProfileManager.GetPrimaryPad());
 
 	connection->send( shared_ptr<PreLoginPacket>( new PreLoginPacket(minecraft->user->name) ) );
+	fprintf(stderr, "[NETDBG] Primary connection sent prelogin nameLen=%zu\n", minecraft->user->name.size());
 
 	// Tick connection until we're ready to go. The stages involved in this are:
 	// (1) Creating the ClientConnection sends a prelogin packet to the server
@@ -337,15 +379,35 @@ bool	CGameNetworkManager::StartNetworkGame(Minecraft *minecraft, LPVOID lpParame
 		TelemetryManager->SetMultiplayerInstanceId(multiplayerInstanceId);
 	}
 	TexturePack *tPack = Minecraft::GetInstance()->skins->getSelected();
+	int connectionLoopCount = 0;
 	do
 	{
 		app.DebugPrintf("ticking connection A\n");
 		connection->tick();
+		if( (connectionLoopCount % 20) == 0 )
+		{
+			fprintf(stderr, "[NETDBG] Primary connection tick loop=%d started=%d closed=%d inSession=%d leaving=%d textureLoading=%d skinReload=%d\n",
+				connectionLoopCount,
+				connection->isStarted() ? 1 : 0,
+				connection->isClosed() ? 1 : 0,
+				IsInSession() ? 1 : 0,
+				g_NetworkManager.IsLeavingGame() ? 1 : 0,
+				tPack->isLoadingData() ? 1 : 0,
+				(Minecraft::GetInstance()->skins->needsUIUpdate() || ui.IsReloadingSkin()) ? 1 : 0);
+		}
+		++connectionLoopCount;
 
 		// 4J Stu - We were ticking this way too fast which could cause the connection to time out
 		// The connections should tick at 20 per second
 		Sleep(50);
 	} while ( (IsInSession() && !connection->isStarted() && !connection->isClosed() && !g_NetworkManager.IsLeavingGame()) || tPack->isLoadingData() || (Minecraft::GetInstance()->skins->needsUIUpdate() || ui.IsReloadingSkin()) );
+	fprintf(stderr, "[NETDBG] Primary connection loop exit started=%d closed=%d inSession=%d leaving=%d textureLoading=%d skinReload=%d\n",
+		connection->isStarted() ? 1 : 0,
+		connection->isClosed() ? 1 : 0,
+		IsInSession() ? 1 : 0,
+		g_NetworkManager.IsLeavingGame() ? 1 : 0,
+		tPack->isLoadingData() ? 1 : 0,
+		(Minecraft::GetInstance()->skins->needsUIUpdate() || ui.IsReloadingSkin()) ? 1 : 0);
 	ui.CleanUpSkinReload();
 
 	// 4J Stu - Fix for #11279 - CRASH: TCR 001: BAS Game Stability: Signing out of game will cause title to crash
@@ -875,6 +937,7 @@ int CGameNetworkManager::ServerThreadProc( void* lpParameter )
 	Entity::useSmallIds();
 	Level::enableLightingCache();
 	Tile::CreateNewThreadStorage();
+	fprintf(stderr, "[NETDBG] ServerThreadProc start global=%p ready=%p stopped=%p\n", &g_NetworkManager, g_NetworkManager.m_hServerReadyEvent, g_NetworkManager.m_hServerStoppedEvent);
 
 	MinecraftServer::main(seed, lpParameter); //saveData, app.GetGameHostOption(eGameHostOption_All));
 	
@@ -1906,20 +1969,30 @@ char *CGameNetworkManager::GetOnlineName(int playerIdx)
 void CGameNetworkManager::ServerReadyCreate(bool create)
 {
 	m_hServerReadyEvent = ( create ? ( new C4JThread::Event ) : NULL );
+	fprintf(stderr, "[NETDBG] ServerReadyCreate create=%d this=%p global=%p ready=%p\n", create ? 1 : 0, this, &g_NetworkManager, m_hServerReadyEvent);
 }
 
 void CGameNetworkManager::ServerReady()
 {
+	fprintf(stderr, "[NETDBG] ServerReady this=%p global=%p ready=%p\n", this, &g_NetworkManager, m_hServerReadyEvent);
+	if( m_hServerReadyEvent == NULL )
+	{
+		fprintf(stderr, "[NETDBG] ServerReady null ready event\n");
+		fflush(stderr);
+		return;
+	}
 	m_hServerReadyEvent->Set();
 }
 
 void CGameNetworkManager::ServerReadyWait()
 {
+	fprintf(stderr, "[NETDBG] ServerReadyWait this=%p global=%p ready=%p\n", this, &g_NetworkManager, m_hServerReadyEvent);
 	m_hServerReadyEvent->WaitForSignal(INFINITE);
 }
 
 void CGameNetworkManager::ServerReadyDestroy()
 {
+	fprintf(stderr, "[NETDBG] ServerReadyDestroy this=%p global=%p ready=%p\n", this, &g_NetworkManager, m_hServerReadyEvent);
 	delete m_hServerReadyEvent;
 	m_hServerReadyEvent = NULL;
 }

@@ -383,40 +383,48 @@ void UIScene_CreateWorldMenu::handleInput(int iPad, int key, bool repeat, bool p
 	case ACTION_MENU_RIGHT:
 	case ACTION_MENU_OTHER_STICK_UP:
 	case ACTION_MENU_OTHER_STICK_DOWN:
-#if defined(__APPLE__)
-		if (pressed)
-		{
-			extern int  AppleMouse_GetCreateWorldSelected();
-			extern void AppleMouse_SetCreateWorldSelected(int idx);
-			extern void AppleMouse_SetCreateWorldSurvival(bool val);
-			extern bool AppleMouse_IsOverButton();
-			if (key == ACTION_MENU_OK)
+	#if defined(__APPLE__)
+			if (pressed)
 			{
-				int sel = AppleMouse_GetCreateWorldSelected();
-				if (AppleMouse_IsOverButton())
+				extern int  AppleMouse_GetCreateWorldSelected();
+				extern void AppleMouse_SetCreateWorldSelected(int idx);
+				extern void AppleMouse_SetCreateWorldSurvival(bool val);
+				extern bool AppleMouse_IsOverButton();
+				if (key == ACTION_MENU_OK)
 				{
-					extern int AppleMouse_GetHoveredControlId();
-					sel = AppleMouse_GetHoveredControlId();
+					int sel = AppleMouse_GetCreateWorldSelected();
+					if (AppleMouse_IsOverButton())
+					{
+						extern int AppleMouse_GetHoveredControlId();
+						sel = AppleMouse_GetHoveredControlId();
+					}
+					if (sel == 0)
+					{
+						handlePress((F64)eControl_EditWorldName, 0);
+					}
+					else if (sel == 1)
+					{
+						handlePress((F64)eControl_EditSeed, 0);
+					}
+					else if (sel == 2)
+					{
+						handlePress((F64)eControl_GameModeToggle, 0);
+						AppleMouse_SetCreateWorldSurvival(m_bGameModeSurvival);
+					}
+					else if (sel == 3)
+					{
+						handlePress((F64)eControl_NewWorld, 0);
+					}
 				}
-				if (sel == 0)
+				else if (key == ACTION_MENU_UP || key == ACTION_MENU_DOWN)
 				{
-					handlePress((F64)eControl_GameModeToggle, 0);
-					AppleMouse_SetCreateWorldSurvival(m_bGameModeSurvival);
-				}
-				else if (sel == 1)
-				{
-					handlePress((F64)eControl_NewWorld, 0);
+					int sel = AppleMouse_GetCreateWorldSelected();
+					if (key == ACTION_MENU_UP   && sel > 0) sel--;
+					if (key == ACTION_MENU_DOWN && sel < 3) sel++;
+					AppleMouse_SetCreateWorldSelected(sel);
+					ui.PlayUISFX(eSFX_Press);
 				}
 			}
-			else if (key == ACTION_MENU_UP || key == ACTION_MENU_DOWN)
-			{
-				int sel = AppleMouse_GetCreateWorldSelected();
-				if (key == ACTION_MENU_UP   && sel > 0) sel--;
-				if (key == ACTION_MENU_DOWN && sel < 1) sel++;
-				AppleMouse_SetCreateWorldSelected(sel);
-				ui.PlayUISFX(eSFX_Press);
-			}
-		}
 #else
 		sendInputToMovie(key, repeat, pressed, released);
 
@@ -797,11 +805,16 @@ int UIScene_CreateWorldMenu::KeyboardCompleteWorldNameCallback(LPVOID lpParam,bo
 		uint16_t pchText[128];
 		ZeroMemory(pchText, 128 * sizeof(uint16_t) );
 		InputManager.GetText(pchText);
-
-		if(pchText[0]!=0)
+		wstring text;
+		for (int i = 0; pchText[i] != 0; ++i)
 		{
-			pClass->m_editWorldName.setLabel((wchar_t *)pchText);
-			pClass->m_worldName = (wchar_t *)pchText;
+			text.push_back((wchar_t)pchText[i]);
+		}
+
+		if(!text.empty())
+		{
+			pClass->m_editWorldName.setLabel(text);
+			pClass->m_worldName = text;
 		}
 
 		pClass->m_buttonCreateWorld.setEnable( !pClass->m_worldName.empty() );
@@ -825,8 +838,13 @@ int UIScene_CreateWorldMenu::KeyboardCompleteSeedCallback(LPVOID lpParam,bool bR
 		ZeroMemory(pchText, 128 * sizeof(uint16_t) );
 #endif
 		InputManager.GetText(pchText);
-		pClass->m_editSeed.setLabel((wchar_t *)pchText);
-		pClass->m_MoreOptionsParams.seed = (wchar_t *)pchText;
+		wstring text;
+		for (int i = 0; pchText[i] != 0; ++i)
+		{
+			text.push_back((wchar_t)pchText[i]);
+		}
+		pClass->m_editSeed.setLabel(text);
+		pClass->m_MoreOptionsParams.seed = text;
 	}
 	return 0;
 }

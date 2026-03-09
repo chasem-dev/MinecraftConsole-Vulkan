@@ -44,17 +44,34 @@ static Minecraft *g_pMinecraft = nullptr;
 double g_cursorX = 0.0;
 double g_cursorY = 0.0;
 
+// ---- Mouse grab & delta tracking for in-game look ----
+static bool   g_appleMouseGrabbed = false;
+static double g_lastCursorX = 0.0;
+static double g_lastCursorY = 0.0;
+static float  g_appleMouseDeltaX = 0.0f;
+static float  g_appleMouseDeltaY = 0.0f;
+static GLFWwindow *g_appleWindow = nullptr;
+
 // ---- Apple keyboard state for UI input ----
 // GLFW key callback stores edge-triggered state here; UIController reads it.
 static bool g_appleKeyDown[512]     = {};
 static bool g_appleKeyPressed[512]  = {};  // went down this frame
 static bool g_appleKeyReleased[512] = {};  // went up this frame
 
+extern "C" void AppleInput_HandleChar(unsigned int codepoint);
+extern "C" void AppleInput_HandleKey(int key, int action);
+
 static void glfwKeyCallback(GLFWwindow *, int key, int /*scancode*/, int action, int /*mods*/)
 {
   if (key < 0 || key >= 512) return;
   if (action == GLFW_PRESS)   { g_appleKeyDown[key] = true;  g_appleKeyPressed[key] = true; }
   if (action == GLFW_RELEASE) { g_appleKeyDown[key] = false; g_appleKeyReleased[key] = true; }
+  AppleInput_HandleKey(key, action);
+}
+
+static void glfwCharCallback(GLFWwindow *, unsigned int codepoint)
+{
+  AppleInput_HandleChar(codepoint);
 }
 
 // Called at start of each frame (before glfwPollEvents) to clear edge flags
@@ -70,12 +87,18 @@ bool AppleKeyboard_IsReleased(int glfwKey) { return (glfwKey >= 0 && glfwKey < 5
 
 static void glfwMouseButtonCallback(GLFWwindow *, int button, int action, int);
 
-// Store mouse button state in the same keyboard array (slot 500 = left button)
+// Store mouse button state in the same keyboard array (slot 500 = left, 501 = right)
 static void glfwMouseButtonCallbackUI(GLFWwindow *win, int button, int action, int mods)
 {
   if (button == GLFW_MOUSE_BUTTON_LEFT)
   {
     const int slot = 500;  // synthetic GLFW key slot for mouse left
+    if (action == GLFW_PRESS)   { g_appleKeyDown[slot] = true;  g_appleKeyPressed[slot] = true; }
+    if (action == GLFW_RELEASE) { g_appleKeyDown[slot] = false; g_appleKeyReleased[slot] = true; }
+  }
+  if (button == GLFW_MOUSE_BUTTON_RIGHT)
+  {
+    const int slot = 501;  // synthetic GLFW key slot for mouse right
     if (action == GLFW_PRESS)   { g_appleKeyDown[slot] = true;  g_appleKeyPressed[slot] = true; }
     if (action == GLFW_RELEASE) { g_appleKeyDown[slot] = false; g_appleKeyReleased[slot] = true; }
   }
@@ -85,9 +108,42 @@ static void glfwMouseButtonCallbackUI(GLFWwindow *win, int button, int action, i
 
 static void glfwCursorPosCallback(GLFWwindow *, double xpos, double ypos)
 {
+  if (g_appleMouseGrabbed)
+  {
+    g_appleMouseDeltaX += (float)(xpos - g_lastCursorX);
+    g_appleMouseDeltaY += (float)(ypos - g_lastCursorY);
+  }
+  g_lastCursorX = xpos;
+  g_lastCursorY = ypos;
   g_cursorX = xpos;
   g_cursorY = ypos;
 }
+
+// ---- Mouse grab API for game code ----
+void AppleMouse_SetGrabbed(bool grabbed)
+{
+  if (g_appleMouseGrabbed == grabbed) return;
+  g_appleMouseGrabbed = grabbed;
+  if (g_appleWindow != nullptr)
+  {
+    if (grabbed)
+    {
+      glfwSetInputMode(g_appleWindow, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+      // Seed last position so first delta after grab isn't huge
+      glfwGetCursorPos(g_appleWindow, &g_lastCursorX, &g_lastCursorY);
+      g_appleMouseDeltaX = 0.0f;
+      g_appleMouseDeltaY = 0.0f;
+    }
+    else
+    {
+      glfwSetInputMode(g_appleWindow, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
+  }
+}
+bool  AppleMouse_IsGrabbed()    { return g_appleMouseGrabbed; }
+float AppleMouse_GetDeltaX()    { return g_appleMouseDeltaX; }
+float AppleMouse_GetDeltaY()    { return g_appleMouseDeltaY; }
+void  AppleMouse_ClearDeltas()  { g_appleMouseDeltaX = 0.0f; g_appleMouseDeltaY = 0.0f; }
 
 static void glfwMouseButtonCallback(GLFWwindow *, int button, int action, int)
 {
@@ -371,9 +427,11 @@ int main()
 
     // Mouse + keyboard input
     g_pMinecraft = pMinecraft;
-    glfwSetMouseButtonCallback(window, glfwMouseButtonCallbackUI);
-    glfwSetCursorPosCallback(window, glfwCursorPosCallback);
-    glfwSetKeyCallback(window, glfwKeyCallback);
+    g_appleWindow = window;
+	    glfwSetMouseButtonCallback(window, glfwMouseButtonCallbackUI);
+	    glfwSetCursorPosCallback(window, glfwCursorPosCallback);
+	    glfwSetKeyCallback(window, glfwKeyCallback);
+	    glfwSetCharCallback(window, glfwCharCallback);
 
     // Console UI flow: postInit() navigates to eUIScene_SaveMessage first,
     // which auto-advances to eUIScene_MainMenu after a brief delay.
@@ -385,9 +443,12 @@ int main()
     std::cerr << "[MCE] Entering main loop...\n";
 
     // ---- Main game loop (mirrors Windows64 frame loop) ----
+    bool lastGameStarted = app.GetGameStarted();
     while (!glfwWindowShouldClose(window) && pMinecraft->running)
     {
       AppleKeyboard_ClearEdges();
+      // Note: mouse deltas are NOT cleared here — they accumulate across frames
+      // and are cleared in Input::tick() after being consumed (20 tps < frame rate).
       glfwPollEvents();
 
       RenderManager.StartFrame();
@@ -405,16 +466,40 @@ int main()
       g_iScreenWidth = winW;
       g_iScreenHeight = winH;
 
-      if (app.GetGameStarted())
+      const bool gameStarted = app.GetGameStarted();
+      if (gameStarted != lastGameStarted)
+      {
+        std::cerr << "[MCE] game-started changed: " << (gameStarted ? 1 : 0)
+                  << " level=" << pMinecraft->level
+                  << " player=" << pMinecraft->player.get()
+                  << " camera=" << pMinecraft->cameraTargetPlayer.get()
+                  << " screen=" << pMinecraft->screen
+                  << '\n';
+        lastGameStarted = gameStarted;
+      }
+
+      if (gameStarted)
       {
         pMinecraft->run_middle();
+        bool isPaused = ui.IsPauseMenuDisplayed(ProfileManager.GetPrimaryPad());
         app.SetAppPaused(
           g_NetworkManager.IsLocalGame() &&
           g_NetworkManager.GetPlayerCount() == 1 &&
-          ui.IsPauseMenuDisplayed(ProfileManager.GetPrimaryPad()));
+          isPaused);
+
+        // Auto-grab mouse when in-game with no menu displayed
+        bool menuDisplayed = ui.GetMenuDisplayed(ProfileManager.GetPrimaryPad());
+        if (!menuDisplayed && !g_appleMouseGrabbed)
+          AppleMouse_SetGrabbed(true);
+        else if (menuDisplayed && g_appleMouseGrabbed)
+          AppleMouse_SetGrabbed(false);
       }
       else
       {
+        // Release mouse when not in game
+        if (g_appleMouseGrabbed)
+          AppleMouse_SetGrabbed(false);
+
         if (pMinecraft->soundEngine)
           pMinecraft->soundEngine->tick(NULL, 0.0f);
         if (pMinecraft->textures)

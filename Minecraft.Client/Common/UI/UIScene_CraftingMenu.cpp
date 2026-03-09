@@ -434,16 +434,17 @@ void UIScene_CraftingMenu::customDraw(IggyCustomDrawCallbackRegion *region)
 {
 	Minecraft *pMinecraft = Minecraft::GetInstance();
 	if(pMinecraft->localplayers[m_iPad] == NULL || pMinecraft->localgameModes[m_iPad] == NULL) return;
+	if(region == NULL || region->name == NULL) return;
 
 	shared_ptr<ItemInstance> item = nullptr;
 	int slotId = -1;
 	float alpha = 1.0f;
 	bool decorations = true;
 	bool inventoryItem = false;
-	swscanf((wchar_t*)region->name,L"slot_%d",&slotId);
-	if (slotId == -1)
+	if(wcsncmp((wchar_t*)region->name, L"slot_", 5) != 0) return;
+	if(swscanf((wchar_t*)region->name,L"slot_%d",&slotId) != 1 || slotId < 0)
 	{
-		app.DebugPrintf("This is not the control we are looking for\n");
+		return;
 	}
 	else if(slotId >= CRAFTING_INVENTORY_SLOT_START && slotId < CRAFTING_INVENTORY_SLOT_END)
 	{

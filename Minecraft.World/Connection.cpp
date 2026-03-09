@@ -75,6 +75,8 @@ Connection::~Connection()
 
 Connection::Connection(Socket *socket, const wstring& id, PacketListener *packetListener) // throws IOException
 {
+	fprintf(stderr, "[NETDBG] Connection ctor begin this=%p socket=%p listener=%p serverListener=%d\n",
+		this, socket, packetListener, packetListener->isServerPacketListener() ? 1 : 0);
 	_init();
 
 	this->socket = socket;
@@ -97,6 +99,7 @@ Connection::Connection(Socket *socket, const wstring& id, PacketListener *packet
 	dis = new DataInputStream(socket->getInputStream(packetListener->isServerPacketListener()));
 		
 	sos = socket->getOutputStream(packetListener->isServerPacketListener());
+	fprintf(stderr, "[NETDBG] Connection ctor streams ready this=%p dis=%p sos=%p\n", this, dis, sos);
 	bufferedDos = new DataOutputStream(new BufferedOutputStream(sos, SEND_BUFFER_SIZE));
 	baos = new ByteArrayOutputStream( SEND_BUFFER_SIZE );
 	byteArrayDos = new DataOutputStream(baos);
@@ -121,6 +124,7 @@ Connection::Connection(Socket *socket, const wstring& id, PacketListener *packet
 
 	readThread->Run();
 	writeThread->Run();
+	fprintf(stderr, "[NETDBG] Connection ctor end this=%p readThread=%p writeThread=%p\n", this, readThread, writeThread);
 
 
 	/* 4J JEV, java:	

@@ -53,6 +53,22 @@ void Input::tick(LocalPlayer *player)
 		if( pMinecraft->localgameModes[iPad]->isInputAllowed(MINECRAFT_ACTION_FORWARD) || pMinecraft->localgameModes[iPad]->isInputAllowed(MINECRAFT_ACTION_BACKWARD) )
 			kbYA = g_KBMInput.GetMoveY();
 	}
+#elif defined(__APPLE__)
+	extern bool AppleMouse_IsGrabbed();
+	extern bool AppleKeyboard_IsDown(int glfwKey);
+	if (iPad == 0 && AppleMouse_IsGrabbed())
+	{
+		enum { GK_W = 87, GK_A = 65, GK_S = 83, GK_D = 68 };
+		float moveX = 0.0f, moveY = 0.0f;
+		if (AppleKeyboard_IsDown(GK_W)) moveY += 1.0f;
+		if (AppleKeyboard_IsDown(GK_S)) moveY -= 1.0f;
+		if (AppleKeyboard_IsDown(GK_A)) moveX += 1.0f;
+		if (AppleKeyboard_IsDown(GK_D)) moveX -= 1.0f;
+		if( pMinecraft->localgameModes[iPad]->isInputAllowed(MINECRAFT_ACTION_LEFT) || pMinecraft->localgameModes[iPad]->isInputAllowed(MINECRAFT_ACTION_RIGHT) )
+			kbXA = moveX;
+		if( pMinecraft->localgameModes[iPad]->isInputAllowed(MINECRAFT_ACTION_FORWARD) || pMinecraft->localgameModes[iPad]->isInputAllowed(MINECRAFT_ACTION_BACKWARD) )
+			kbYA = moveY;
+	}
 #endif
 
 	if (kbXA != 0.0f || kbYA != 0.0f)
@@ -125,6 +141,30 @@ void Input::tick(LocalPlayer *player)
 			sprinting = false;
 		}
 	}
+#elif defined(__APPLE__)
+	if (iPad == 0 && AppleMouse_IsGrabbed())
+	{
+		enum { GK_LEFT_SHIFT = 340, GK_LEFT_CONTROL = 341 };
+		// Left Shift = sneak (hold to crouch)
+		if (pMinecraft->localgameModes[iPad]->isInputAllowed(MINECRAFT_ACTION_SNEAK_TOGGLE))
+		{
+			if (!player->abilities.flying)
+			{
+				sneaking = AppleKeyboard_IsDown(GK_LEFT_SHIFT);
+			}
+		}
+		// Left Ctrl + forward = sprint (hold to sprint)
+		if (!player->abilities.flying)
+		{
+			bool ctrlHeld = AppleKeyboard_IsDown(GK_LEFT_CONTROL);
+			bool movingForward = (kbYA > 0.0f);
+			sprinting = (ctrlHeld && movingForward);
+		}
+		else
+		{
+			sprinting = false;
+		}
+	}
 #endif
 
 	if(sneaking)
@@ -181,6 +221,30 @@ void Input::tick(LocalPlayer *player)
 		turnX += mx;
 		turnY += my;
 	}
+#elif defined(__APPLE__)
+	extern float AppleMouse_GetDeltaX();
+	extern float AppleMouse_GetDeltaY();
+	if (iPad == 0 && AppleMouse_IsGrabbed())
+	{
+		float mouseSensitivity = ((float)app.GetGameSettings(iPad,eGameSetting_Sensitivity_InGame)) / 100.0f;
+		float mouseLookScale = 5.0f;
+		extern void AppleMouse_ClearDeltas();
+		// Game settings may not be initialized — use sensible default if zero
+		if (mouseSensitivity <= 0.0f) mouseSensitivity = 0.15f;
+		float rawDX = AppleMouse_GetDeltaX();
+		float rawDY = AppleMouse_GetDeltaY();
+		float mx = rawDX * mouseSensitivity * mouseLookScale;
+		float my = -rawDY * mouseSensitivity * mouseLookScale;
+		AppleMouse_ClearDeltas();  // consume deltas so they don't re-apply next tick
+
+		if ( app.GetGameSettings(iPad,eGameSetting_ControlInvertLook) )
+		{
+			my = -my;
+		}
+
+		turnX += mx;
+		turnY += my;
+	}
 #endif
 
 	player->interpolateTurn(turnX, turnY);
@@ -191,6 +255,11 @@ void Input::tick(LocalPlayer *player)
 	bool kbJump = false;
 #ifdef _WINDOWS64
 	kbJump = (iPad == 0) && g_KBMInput.IsMouseGrabbed() && g_KBMInput.IsKBMActive() && g_KBMInput.IsKeyDown(KeyboardMouseInput::KEY_JUMP);
+#elif defined(__APPLE__)
+	{
+		enum { GK_SPACE = 32 };
+		kbJump = (iPad == 0) && AppleMouse_IsGrabbed() && AppleKeyboard_IsDown(GK_SPACE);
+	}
 #endif
 	if( (jump > 0 || kbJump) && pMinecraft->localgameModes[iPad]->isInputAllowed(MINECRAFT_ACTION_JUMP) )
 		jumping = true;
@@ -205,6 +274,16 @@ void Input::tick(LocalPlayer *player)
 	if (iPad == 0 && g_KBMInput.IsKeyPressed(VK_ESCAPE) && g_KBMInput.IsMouseGrabbed())
 	{
 		g_KBMInput.SetMouseGrabbed(false);
+	}
+#elif defined(__APPLE__)
+	{
+		extern void AppleMouse_SetGrabbed(bool);
+		extern bool AppleKeyboard_IsPressed(int glfwKey);
+		enum { GK_ESCAPE = 256 };
+		if (iPad == 0 && AppleKeyboard_IsPressed(GK_ESCAPE) && AppleMouse_IsGrabbed())
+		{
+			AppleMouse_SetGrabbed(false);
+		}
 	}
 #endif
 

@@ -1888,11 +1888,13 @@ void Tutorial::onSelectedItemChanged(shared_ptr<ItemInstance> item)
 void Tutorial::onLookAt(int id, int iData)
 {
 	if( m_hintDisplayed ) return;
+	if( m_CurrentState < 0 || m_CurrentState >= e_Tutorial_State_Max ) return;
 
 	bool hintNeeded = false;
 	for(AUTO_VAR(it, hints[m_CurrentState].begin()); it < hints[m_CurrentState].end(); ++it)
 	{
 		TutorialHint *hint = *it;
+		if( !hint ) continue;
 		hintNeeded = hint->onLookAt(id, iData);
 		if(hintNeeded)
 		{

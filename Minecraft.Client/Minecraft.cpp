@@ -1302,6 +1302,7 @@ void Minecraft::run_middle()
 	static bool bAutosaveTimerSet=false;
 	static unsigned int uiAutosaveTimer=0;
 	static int iFirstTimeCountdown=60;
+	static int s_renderStateLogCountdown = 0;
 	if( lastTime == 0 ) lastTime = System::nanoTime();
 	static int frames = 0;
 
@@ -1309,6 +1310,26 @@ void Minecraft::run_middle()
 
 	if(running)
 	{
+		if( app.GetGameStarted() )
+		{
+			if( s_renderStateLogCountdown <= 0 )
+			{
+				fprintf(stderr, "[MCE] render-state gameStarted=1 level=%p player=%p camera=%p gameMode=%p screen=%p local0=%p pending0=%p\n",
+					level,
+					player.get(),
+					cameraTargetPlayer.get(),
+					gameMode,
+					screen,
+					localplayers[0].get(),
+					m_pendingLocalConnections[0]);
+				s_renderStateLogCountdown = 120;
+			}
+			else
+			{
+				--s_renderStateLogCountdown;
+			}
+		}
+
 		if (reloadTextures)
 		{
 			reloadTextures = false;
@@ -1576,6 +1597,57 @@ void Minecraft::run_middle()
 						for (int slot = 0; slot < 9; slot++)
 						{
 							if (g_KBMInput.IsKeyPressed('1' + slot))
+							{
+								if (localplayers[i]->inventory)
+									localplayers[i]->inventory->selected = slot;
+							}
+						}
+					}
+#elif defined(__APPLE__)
+					if (i == 0)
+					{
+						extern bool AppleKeyboard_IsPressed(int glfwKey);
+						extern bool AppleKeyboard_IsDown(int glfwKey);
+						extern bool AppleMouse_IsGrabbed();
+						extern void AppleMouse_SetGrabbed(bool);
+						enum {
+							GK_ESCAPE = 256, GK_E = 69, GK_Q = 81, GK_F5 = 294,
+							GK_F3 = 292, GK_F4 = 293,
+							GK_MOUSE_LEFT = 500, GK_MOUSE_RIGHT = 501,
+						};
+
+						if (AppleMouse_IsGrabbed())
+						{
+							if (AppleKeyboard_IsPressed(GK_MOUSE_LEFT))
+								localplayers[i]->ullButtonsPressed|=1LL<<MINECRAFT_ACTION_ACTION;
+
+							if (AppleKeyboard_IsPressed(GK_MOUSE_RIGHT))
+								localplayers[i]->ullButtonsPressed|=1LL<<MINECRAFT_ACTION_USE;
+						}
+
+						if (AppleKeyboard_IsPressed(GK_E))
+							localplayers[i]->ullButtonsPressed|=1LL<<MINECRAFT_ACTION_INVENTORY;
+
+						if (AppleKeyboard_IsPressed(GK_Q))
+							localplayers[i]->ullButtonsPressed|=1LL<<MINECRAFT_ACTION_DROP;
+
+						if (AppleKeyboard_IsPressed(GK_ESCAPE))
+						{
+							localplayers[i]->ullButtonsPressed|=1LL<<MINECRAFT_ACTION_PAUSEMENU;
+							app.DebugPrintf("PAUSE PRESSED (Apple keyboard) - ipad = %d\n",i);
+						}
+
+						if (AppleKeyboard_IsPressed(GK_F5))
+							localplayers[i]->ullButtonsPressed|=1LL<<MINECRAFT_ACTION_RENDER_THIRD_PERSON;
+
+						if (AppleKeyboard_IsPressed(GK_F3))
+						{
+							Minecraft::GetInstance()->options->renderDebug = !Minecraft::GetInstance()->options->renderDebug;
+						}
+
+						for (int slot = 0; slot < 9; slot++)
+						{
+							if (AppleKeyboard_IsPressed('1' + slot))
 							{
 								if (localplayers[i]->inventory)
 									localplayers[i]->inventory->selected = slot;
@@ -3375,6 +3447,14 @@ void Minecraft::tick(bool bFirst, bool bUpdateTextures)
 
 #ifdef _WINDOWS64
 			bool actionHeld = InputManager.ButtonDown(iPad, MINECRAFT_ACTION_ACTION) || (iPad == 0 && g_KBMInput.IsKBMActive() && g_KBMInput.IsMouseButtonDown(KeyboardMouseInput::MOUSE_LEFT));
+#elif defined(__APPLE__)
+			bool actionHeld = InputManager.ButtonDown(iPad, MINECRAFT_ACTION_ACTION);
+			{
+				extern bool AppleMouse_IsGrabbed();
+				extern bool AppleKeyboard_IsDown(int);
+				if (iPad == 0 && AppleMouse_IsGrabbed() && AppleKeyboard_IsDown(500))
+					actionHeld = true;
+			}
 #else
 			bool actionHeld = InputManager.ButtonDown(iPad, MINECRAFT_ACTION_ACTION);
 #endif
@@ -3406,6 +3486,14 @@ void Minecraft::tick(bool bFirst, bool bUpdateTextures)
 		*/
 #ifdef _WINDOWS64
 		bool useHeld = InputManager.ButtonDown(iPad, MINECRAFT_ACTION_USE) || (iPad == 0 && g_KBMInput.IsKBMActive() && g_KBMInput.IsMouseButtonDown(KeyboardMouseInput::MOUSE_RIGHT));
+#elif defined(__APPLE__)
+		bool useHeld = InputManager.ButtonDown(iPad, MINECRAFT_ACTION_USE);
+		{
+			extern bool AppleMouse_IsGrabbed();
+			extern bool AppleKeyboard_IsDown(int);
+			if (iPad == 0 && AppleMouse_IsGrabbed() && AppleKeyboard_IsDown(501))
+				useHeld = true;
+		}
 #else
 		bool useHeld = InputManager.ButtonDown(iPad, MINECRAFT_ACTION_USE);
 #endif

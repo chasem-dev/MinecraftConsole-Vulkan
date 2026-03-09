@@ -110,9 +110,10 @@ void VulkanBootstrapApp::attachToWindow(GLFWwindow *window)
   createRenderPass();
   createGraphicsPipeline();
   createFramebuffers();
-  createVertexBuffer();
+  createVertexBuffer(262144);
   createCommandBuffers();
   createSyncObjects();
+  setViewportRect(0, 0, swapchainExtent_.width, swapchainExtent_.height);
 }
 
 void VulkanBootstrapApp::initVulkan()
@@ -138,6 +139,7 @@ void VulkanBootstrapApp::tickFrame()
 
 void VulkanBootstrapApp::beginFrame()
 {
+  std::lock_guard<std::mutex> lock(frameDataMutex_);
   frameVertices_.clear();
   frameBatches_.clear();
 }
@@ -155,18 +157,44 @@ void VulkanBootstrapApp::submitVertices(
     return;
   }
 
+  std::lock_guard<std::mutex> lock(frameDataMutex_);
   DrawBatch batch;
   batch.topology = topology;
   batch.firstVertex = static_cast<uint32_t>(frameVertices_.size());
   batch.vertexCount = static_cast<uint32_t>(count);
   batch.shaderVariant = variant;
   batch.renderState = state;
+  batch.viewportX = currentViewportX_;
+  batch.viewportY = currentViewportY_;
+  batch.viewportWidth = currentViewportWidth_;
+  batch.viewportHeight = currentViewportHeight_;
   if (mvp != nullptr)
   {
     std::copy(mvp, mvp + batch.mvp.size(), batch.mvp.begin());
   }
   frameBatches_.push_back(batch);
   frameVertices_.insert(frameVertices_.end(), vertices, vertices + count);
+}
+
+void VulkanBootstrapApp::requestClear(uint32_t flags)
+{
+  std::lock_guard<std::mutex> lock(frameDataMutex_);
+  DrawBatch batch;
+  batch.clearFlags = flags;
+  batch.viewportX = currentViewportX_;
+  batch.viewportY = currentViewportY_;
+  batch.viewportWidth = currentViewportWidth_;
+  batch.viewportHeight = currentViewportHeight_;
+  frameBatches_.push_back(batch);
+}
+
+void VulkanBootstrapApp::setViewportRect(int x, int y, uint32_t width, uint32_t height)
+{
+  std::lock_guard<std::mutex> lock(frameDataMutex_);
+  currentViewportX_ = x;
+  currentViewportY_ = y;
+  currentViewportWidth_ = width;
+  currentViewportHeight_ = height;
 }
 
 void VulkanBootstrapApp::shutdownRenderer()

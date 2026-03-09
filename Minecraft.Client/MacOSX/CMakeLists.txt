@@ -114,6 +114,7 @@ set(MCE_SHADER_SOURCES
   "mce_textured.frag"
   "mce_textured_alphatest.frag"
   "mce_textured_fog.frag"
+  "mce_textured_fog_alphatest.frag"
 )
 set(MCE_SHADER_OUTPUTS)
 

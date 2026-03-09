@@ -6,6 +6,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 #include <optional>
 #include <vector>
 
@@ -22,6 +23,7 @@ public:
     Textured,
     TexturedAlphaTest,
     TexturedFog,
+    TexturedFogAlphaTest,
     Count
   };
 
@@ -79,9 +81,11 @@ public:
     ShaderVariant variant,
     const float mvp[16],
     const RenderState &state);
+  void requestClear(uint32_t flags);
   void tickFrame();
   void shutdownRenderer();
   void setClearColour(const float colourRGBA[4]);
+  void setViewportRect(int x, int y, uint32_t width, uint32_t height);
   int allocateTextureSlot();
   void freeTextureSlot(int index);
   void setCurrentTexture(int index);
@@ -103,9 +107,14 @@ private:
     VkPrimitiveTopology topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     uint32_t firstVertex = 0;
     uint32_t vertexCount = 0;
+    uint32_t clearFlags = 0;
     ShaderVariant shaderVariant = ShaderVariant::ColorOnly;
     RenderState renderState {};
     std::array<float, 16> mvp {};
+    int viewportX = 0;
+    int viewportY = 0;
+    uint32_t viewportWidth = 0;
+    uint32_t viewportHeight = 0;
   };
 
   struct QueueFamilyIndices
@@ -141,7 +150,8 @@ private:
   void createRenderPass();
   void createGraphicsPipeline();
   void createFramebuffers();
-  void createVertexBuffer();
+  void createVertexBuffer(size_t vertexCapacity);
+  void ensureVertexBufferCapacity(size_t requiredVertices);
   void createCommandBuffers();
   void createSyncObjects();
   void createTextureResources();
@@ -150,7 +160,10 @@ private:
   void createSamplers();
   void createFallbackTexture();
   void drawFrame();
-  void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+  void recordCommandBuffer(
+    VkCommandBuffer commandBuffer,
+    uint32_t imageIndex,
+    const std::vector<DrawBatch> &batches);
   uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties) const;
   void createBuffer(
     VkDeviceSize size,
@@ -225,12 +238,18 @@ private:
   VkImageView depthImageView_ = VK_NULL_HANDLE;
   VkRenderPass renderPass_ = VK_NULL_HANDLE;
   VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
-  std::array<VkPipeline, 96> pipelines_ {};
+  std::array<VkPipeline, 240> pipelines_ {};
   std::vector<VkCommandBuffer> commandBuffers_;
 
   VkBuffer vertexBuffer_ = VK_NULL_HANDLE;
   VkDeviceMemory vertexBufferMemory_ = VK_NULL_HANDLE;
   void *vertexBufferMapped_ = nullptr;
+  size_t vertexBufferCapacity_ = 0;
+  std::mutex frameDataMutex_;
+  int currentViewportX_ = 0;
+  int currentViewportY_ = 0;
+  uint32_t currentViewportWidth_ = 0;
+  uint32_t currentViewportHeight_ = 0;
   std::vector<Vertex> frameVertices_;
   std::vector<DrawBatch> frameBatches_;
 

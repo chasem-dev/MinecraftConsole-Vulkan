@@ -117,12 +117,13 @@ void UIScene_DebugOverlay::customDraw(IggyCustomDrawCallbackRegion *region)
 {
 	Minecraft *pMinecraft = Minecraft::GetInstance();
 	if(pMinecraft->localplayers[m_iPad] == NULL || pMinecraft->localgameModes[m_iPad] == NULL) return;
+	if(region == NULL || region->name == NULL) return;
 
 	int itemId = -1;
-	swscanf((wchar_t*)region->name,L"item_%d",&itemId);
-	if (itemId == -1 || itemId > Item::ITEM_NUM_COUNT || Item::items[itemId] == NULL)
+	if(wcsncmp((wchar_t*)region->name, L"item_", 5) != 0) return;
+	if(swscanf((wchar_t*)region->name,L"item_%d",&itemId) != 1 || itemId < 0 || itemId > Item::ITEM_NUM_COUNT || Item::items[itemId] == NULL)
 	{
-		app.DebugPrintf("This is not the control we are looking for\n");
+		return;
 	}
 	else
 	{

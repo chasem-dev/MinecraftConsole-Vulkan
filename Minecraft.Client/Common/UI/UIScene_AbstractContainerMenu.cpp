@@ -252,6 +252,7 @@ void UIScene_AbstractContainerMenu::customDraw(IggyCustomDrawCallbackRegion *reg
 {
 	Minecraft *pMinecraft = Minecraft::GetInstance();
 	if(pMinecraft->localplayers[m_iPad] == NULL || pMinecraft->localgameModes[m_iPad] == NULL) return;
+	if(region == NULL || region->name == NULL) return;
 
 	shared_ptr<ItemInstance> item = nullptr;
 	if(wcscmp((wchar_t *)region->name,L"pointerIcon")==0)
@@ -262,10 +263,10 @@ void UIScene_AbstractContainerMenu::customDraw(IggyCustomDrawCallbackRegion *reg
 	else
 	{
 		int slotId = -1;
-		swscanf((wchar_t*)region->name,L"slot_%d",&slotId);
-		if (slotId == -1)
+		if(wcsncmp((wchar_t*)region->name, L"slot_", 5) != 0) return;
+		if(swscanf((wchar_t*)region->name,L"slot_%d",&slotId) != 1 || slotId < 0)
 		{
-			app.DebugPrintf("This is not the control we are looking for\n");
+			return;
 		}
 		else
 		{			

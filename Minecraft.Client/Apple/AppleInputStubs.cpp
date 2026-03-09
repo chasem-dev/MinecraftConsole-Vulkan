@@ -4,18 +4,55 @@
 
 #include <array>
 #include <cstring>
+#include <string>
 
 namespace
 {
 constexpr int kMaxPads = XUSER_MAX_COUNT + 8;
 constexpr int kMaxMaps = 8;
 constexpr int kMaxActions = 256;
+constexpr int kGlfwKeyEnter = 257;
+constexpr int kGlfwKeyEscape = 256;
+constexpr int kGlfwKeyBackspace = 259;
 
 std::array<std::array<unsigned int, kMaxActions>, kMaxMaps> g_actionMaps{};
 std::array<unsigned char, kMaxPads> g_padMaps{};
 std::array<bool, kMaxPads> g_menuDisplayed{};
 float g_repeatDelaySeconds = 0.3f;
 float g_repeatRateSeconds = 0.2f;
+
+bool g_keyboardActive = false;
+std::wstring g_keyboardTitle;
+std::wstring g_keyboardText;
+std::wstring g_lastKeyboardText;
+UINT g_keyboardMaxChars = 0;
+int (*g_keyboardCallback)(LPVOID, const bool) = nullptr;
+LPVOID g_keyboardCallbackParam = nullptr;
+
+void finishKeyboardRequest(bool accepted)
+{
+  if (!g_keyboardActive)
+  {
+    return;
+  }
+
+  if (accepted)
+  {
+    g_lastKeyboardText = g_keyboardText;
+  }
+
+  g_keyboardActive = false;
+
+  int (*callback)(LPVOID, const bool) = g_keyboardCallback;
+  LPVOID callbackParam = g_keyboardCallbackParam;
+  g_keyboardCallback = nullptr;
+  g_keyboardCallbackParam = nullptr;
+
+  if (callback != nullptr)
+  {
+    callback(callbackParam, accepted);
+  }
+}
 }
 
 C_4JInput InputManager;
@@ -162,16 +199,36 @@ void C_4JInput::SetMenuDisplayed(int iPad, bool bVal)
   }
 }
 
-EKeyboardResult C_4JInput::RequestKeyboard(LPCWSTR, LPCWSTR, DWORD, UINT, int (*)(LPVOID, const bool), LPVOID, C_4JInput::EKeyboardMode)
+EKeyboardResult C_4JInput::RequestKeyboard(
+  LPCWSTR Title,
+  LPCWSTR Text,
+  DWORD,
+  UINT uiMaxChars,
+  int (*Func)(LPVOID, const bool),
+  LPVOID lpParam,
+  C_4JInput::EKeyboardMode)
 {
-  return EKeyboard_Cancelled;
+  g_keyboardTitle = (Title != nullptr) ? Title : L"";
+  g_keyboardText = (Text != nullptr) ? Text : L"";
+  g_lastKeyboardText = g_keyboardText;
+  g_keyboardMaxChars = uiMaxChars;
+  g_keyboardCallback = Func;
+  g_keyboardCallbackParam = lpParam;
+  g_keyboardActive = true;
+  return EKeyboard_Pending;
 }
 
 void C_4JInput::GetText(uint16_t *utf16String)
 {
   if (utf16String != NULL)
   {
-    utf16String[0] = 0;
+    const std::wstring &source = g_keyboardActive ? g_keyboardText : g_lastKeyboardText;
+    size_t i = 0;
+    for (; i < source.size(); ++i)
+    {
+      utf16String[i] = static_cast<uint16_t>(source[i]);
+    }
+    utf16String[i] = 0;
   }
 }
 
@@ -186,4 +243,72 @@ void C_4JInput::CancelQueuedVerifyStrings(int (*)(LPVOID, STRING_VERIFY_RESPONSE
 
 void C_4JInput::CancelAllVerifyInProgress(void)
 {
+}
+
+extern "C" void AppleInput_HandleChar(unsigned int codepoint)
+{
+  if (!g_keyboardActive)
+  {
+    return;
+  }
+
+  if (codepoint < 32 || codepoint > 0xffff)
+  {
+    return;
+  }
+
+  if (g_keyboardMaxChars > 0 && g_keyboardText.size() >= g_keyboardMaxChars)
+  {
+    return;
+  }
+
+  g_keyboardText.push_back(static_cast<wchar_t>(codepoint));
+}
+
+extern "C" void AppleInput_HandleKey(int key, int action)
+{
+  if (!g_keyboardActive)
+  {
+    return;
+  }
+
+  if (action != 1 && action != 2)
+  {
+    return;
+  }
+
+  if (key == kGlfwKeyBackspace)
+  {
+    if (!g_keyboardText.empty())
+    {
+      g_keyboardText.pop_back();
+    }
+    return;
+  }
+
+  if (key == kGlfwKeyEnter)
+  {
+    finishKeyboardRequest(true);
+    return;
+  }
+
+  if (key == kGlfwKeyEscape)
+  {
+    finishKeyboardRequest(false);
+  }
+}
+
+extern "C" bool AppleInput_IsKeyboardActive()
+{
+  return g_keyboardActive;
+}
+
+extern "C" const wchar_t *AppleInput_GetKeyboardTitle()
+{
+  return g_keyboardTitle.c_str();
+}
+
+extern "C" const wchar_t *AppleInput_GetKeyboardText()
+{
+  return g_keyboardText.c_str();
 }

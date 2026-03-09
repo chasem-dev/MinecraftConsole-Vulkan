@@ -1,6 +1,7 @@
 #include "AppleStubs.h"
 
 #include <chrono>
+#include <cerrno>
 #include <cstdio>
 #include <cwctype>
 #include <ctime>
@@ -104,6 +105,31 @@ struct AppleThreadContext
   LPVOID parameter;
 };
 
+struct AppleEvent
+{
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+  bool signaled;
+  bool manualReset;
+};
+
+constexpr uintptr_t kAppleEventHandleTag = 0x1;
+
+inline bool isAppleEventHandle(HANDLE handle)
+{
+  if (!handle || handle == INVALID_HANDLE_VALUE)
+  {
+    return false;
+  }
+
+  return (reinterpret_cast<uintptr_t>(handle) & kAppleEventHandleTag) != 0;
+}
+
+inline AppleEvent *getAppleEvent(HANDLE handle)
+{
+  return reinterpret_cast<AppleEvent *>(reinterpret_cast<uintptr_t>(handle) & ~kAppleEventHandleTag);
+}
+
 void *appleThreadEntry(void *arg)
 {
   AppleThreadContext *ctx = static_cast<AppleThreadContext *>(arg);
@@ -142,12 +168,61 @@ DWORD WaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds)
 {
   if (!hHandle) return WAIT_TIMEOUT;
 
-  // Check if this is an event handle (tagged pointer)
-  uintptr_t tag = reinterpret_cast<uintptr_t>(hHandle);
-  if (tag & 0x1)
+  if (isAppleEventHandle(hHandle))
   {
-    // Event object - stored as tagged pointer to AppleEvent
-    // For now, just return immediately
+    AppleEvent *evt = getAppleEvent(hHandle);
+    pthread_mutex_lock(&evt->mutex);
+
+    int waitResult = 0;
+    if (!evt->signaled)
+    {
+      if (dwMilliseconds == INFINITE)
+      {
+        while (!evt->signaled)
+        {
+          waitResult = pthread_cond_wait(&evt->cond, &evt->mutex);
+          if (waitResult != 0)
+          {
+            pthread_mutex_unlock(&evt->mutex);
+            return WAIT_FAILED;
+          }
+        }
+      }
+      else
+      {
+        struct timespec deadline;
+        clock_gettime(CLOCK_REALTIME, &deadline);
+        deadline.tv_sec += dwMilliseconds / 1000;
+        deadline.tv_nsec += static_cast<long>(dwMilliseconds % 1000) * 1000000L;
+        if (deadline.tv_nsec >= 1000000000L)
+        {
+          deadline.tv_sec += 1;
+          deadline.tv_nsec -= 1000000000L;
+        }
+
+        while (!evt->signaled)
+        {
+          waitResult = pthread_cond_timedwait(&evt->cond, &evt->mutex, &deadline);
+          if (waitResult == ETIMEDOUT)
+          {
+            pthread_mutex_unlock(&evt->mutex);
+            return WAIT_TIMEOUT;
+          }
+          if (waitResult != 0)
+          {
+            pthread_mutex_unlock(&evt->mutex);
+            return WAIT_FAILED;
+          }
+        }
+      }
+    }
+
+    if (!evt->manualReset)
+    {
+      evt->signaled = false;
+    }
+
+    pthread_mutex_unlock(&evt->mutex);
     return WAIT_OBJECT_0;
   }
 
@@ -165,23 +240,98 @@ DWORD WaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds)
 
 DWORD WaitForMultipleObjects(DWORD nCount, const HANDLE *lpHandles, BOOL bWaitAll, DWORD dwMilliseconds)
 {
-  if (bWaitAll)
+  if (nCount == 0 || !lpHandles)
   {
+    return WAIT_FAILED;
+  }
+
+  const auto start = std::chrono::steady_clock::now();
+  while (true)
+  {
+    bool allSignaled = true;
     for (DWORD i = 0; i < nCount; i++)
     {
-      WaitForSingleObject(lpHandles[i], dwMilliseconds);
+      HANDLE handle = lpHandles[i];
+      if (isAppleEventHandle(handle))
+      {
+        AppleEvent *evt = getAppleEvent(handle);
+        pthread_mutex_lock(&evt->mutex);
+        const bool signaled = evt->signaled;
+        pthread_mutex_unlock(&evt->mutex);
+
+        if (signaled)
+        {
+          if (!bWaitAll)
+          {
+            if (!evt->manualReset)
+            {
+              pthread_mutex_lock(&evt->mutex);
+              evt->signaled = false;
+              pthread_mutex_unlock(&evt->mutex);
+            }
+            return WAIT_OBJECT_0 + i;
+          }
+        }
+        else
+        {
+          allSignaled = false;
+        }
+      }
+      else
+      {
+        DWORD result = WaitForSingleObject(handle, 0);
+        if (result == WAIT_OBJECT_0)
+        {
+          if (!bWaitAll)
+          {
+            return WAIT_OBJECT_0 + i;
+          }
+        }
+        else
+        {
+          allSignaled = false;
+        }
+      }
     }
-    return WAIT_OBJECT_0;
-  }
-  else
-  {
-    // Wait for any - simplified: just wait for the first one
-    if (nCount > 0)
+
+    if (bWaitAll && allSignaled)
     {
-      WaitForSingleObject(lpHandles[0], dwMilliseconds);
+      for (DWORD i = 0; i < nCount; i++)
+      {
+        HANDLE handle = lpHandles[i];
+        if (isAppleEventHandle(handle))
+        {
+          AppleEvent *evt = getAppleEvent(handle);
+          if (!evt->manualReset)
+          {
+            pthread_mutex_lock(&evt->mutex);
+            evt->signaled = false;
+            pthread_mutex_unlock(&evt->mutex);
+          }
+        }
+      }
+      return WAIT_OBJECT_0;
     }
-    return WAIT_OBJECT_0;
+
+    if (dwMilliseconds == 0)
+    {
+      return WAIT_TIMEOUT;
+    }
+
+    if (dwMilliseconds != INFINITE)
+    {
+      const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - start);
+      if (elapsed.count() >= dwMilliseconds)
+      {
+        return WAIT_TIMEOUT;
+      }
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
+
+  return WAIT_TIMEOUT;
 }
 
 BOOL GetExitCodeThread(HANDLE, LPDWORD lpExitCode)
@@ -190,17 +340,6 @@ BOOL GetExitCodeThread(HANDLE, LPDWORD lpExitCode)
   return TRUE;
 }
 
-// ============================================================================
-// Events (simplified mutex+condvar implementation)
-// ============================================================================
-struct AppleEvent
-{
-  pthread_mutex_t mutex;
-  pthread_cond_t cond;
-  bool signaled;
-  bool manualReset;
-};
-
 HANDLE CreateEvent(LPVOID, BOOL bManualReset, BOOL bInitialState, LPCSTR)
 {
   AppleEvent *evt = new AppleEvent;
@@ -208,13 +347,13 @@ HANDLE CreateEvent(LPVOID, BOOL bManualReset, BOOL bInitialState, LPCSTR)
   pthread_cond_init(&evt->cond, nullptr);
   evt->signaled = bInitialState != 0;
   evt->manualReset = bManualReset != 0;
-  return reinterpret_cast<HANDLE>(evt);
+  return reinterpret_cast<HANDLE>(reinterpret_cast<uintptr_t>(evt) | kAppleEventHandleTag);
 }
 
 BOOL SetEvent(HANDLE hEvent)
 {
-  if (!hEvent) return FALSE;
-  AppleEvent *evt = reinterpret_cast<AppleEvent *>(hEvent);
+  if (!isAppleEventHandle(hEvent)) return FALSE;
+  AppleEvent *evt = getAppleEvent(hEvent);
   pthread_mutex_lock(&evt->mutex);
   evt->signaled = true;
   if (evt->manualReset)
@@ -227,8 +366,8 @@ BOOL SetEvent(HANDLE hEvent)
 
 BOOL ResetEvent(HANDLE hEvent)
 {
-  if (!hEvent) return FALSE;
-  AppleEvent *evt = reinterpret_cast<AppleEvent *>(hEvent);
+  if (!isAppleEventHandle(hEvent)) return FALSE;
+  AppleEvent *evt = getAppleEvent(hEvent);
   pthread_mutex_lock(&evt->mutex);
   evt->signaled = false;
   pthread_mutex_unlock(&evt->mutex);
@@ -243,12 +382,15 @@ BOOL CloseHandle(HANDLE hObject)
   if (!hObject || hObject == INVALID_HANDLE_VALUE)
     return FALSE;
 
-  // We can't easily distinguish handle types at runtime without a registry.
-  // For now, this is a simplified implementation.
-  // Thread handles were allocated with new pthread_t.
-  // Event handles were allocated with new AppleEvent.
-  // File handles use POSIX fd stored in HANDLE.
-  // The caller is responsible for knowing what type they close.
+  if (isAppleEventHandle(hObject))
+  {
+    AppleEvent *evt = getAppleEvent(hObject);
+    pthread_cond_destroy(&evt->cond);
+    pthread_mutex_destroy(&evt->mutex);
+    delete evt;
+    return TRUE;
+  }
+
   return TRUE;
 }
 

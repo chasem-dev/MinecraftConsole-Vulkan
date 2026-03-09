@@ -99,6 +99,7 @@ ClientConnection::ClientConnection(Minecraft *minecraft, const wstring& ip, int 
 
 ClientConnection::ClientConnection(Minecraft *minecraft, Socket *socket, int iUserIndex /*= -1*/)
 {
+	fprintf(stderr, "[NETDBG] ClientConnection ctor begin this=%p incomingSocket=%p userArg=%d\n", this, socket, iUserIndex);
 	// 4J - added initiliasers
 	random = new Random();
 	done = false;
@@ -120,13 +121,17 @@ ClientConnection::ClientConnection(Minecraft *minecraft, Socket *socket, int iUs
 
 	if( socket == NULL )
 	{
+	    fprintf(stderr, "[NETDBG] ClientConnection ctor creating local socket\n");
 	    socket = new Socket();	// 4J - Local connection
+	    fprintf(stderr, "[NETDBG] ClientConnection ctor local socket created socket=%p createdOk=%d\n", socket, socket ? (socket->createdOk ? 1 : 0) : 0);
 	}
 
 	createdOk = socket->createdOk;
 	if( createdOk )
 	{
+	    fprintf(stderr, "[NETDBG] ClientConnection ctor creating Connection socket=%p user=%d\n", socket, m_userIndex);
 	    connection = new Connection(socket, L"Client", this);
+	    fprintf(stderr, "[NETDBG] ClientConnection ctor Connection created connection=%p\n", connection);
 	}
 	else
 	{
@@ -134,6 +139,7 @@ ClientConnection::ClientConnection(Minecraft *minecraft, Socket *socket, int iUs
 		// TODO 4J Stu - This will cause issues since the session player owns the socket
 		//delete socket;
 	}
+	fprintf(stderr, "[NETDBG] ClientConnection ctor end this=%p createdOk=%d connection=%p socket=%p user=%d\n", this, createdOk ? 1 : 0, connection, socket, m_userIndex);
 }
 
 ClientConnection::~ClientConnection()
@@ -158,6 +164,15 @@ INetworkPlayer *ClientConnection::getNetworkPlayer()
 void ClientConnection::handleLogin(shared_ptr<LoginPacket> packet)
 {
     if (done) return;
+	fprintf(stderr, "[NETDBG] handleLogin user=%d dim=%d gameType=%d maxPlayers=%d seed=%lld started=%d socket=%p smallId=%u\n",
+		m_userIndex,
+		packet->dimension,
+		packet->gameType,
+		packet->maxPlayers,
+		packet->seed,
+		started ? 1 : 0,
+		getSocket(),
+		getSocket() ? getSocket()->getSmallId() : 255);
 
 	PlayerUID OnlineXuid;
 	ProfileManager.GetXUID(m_userIndex,&OnlineXuid,true); // online xuid
@@ -404,6 +419,11 @@ void ClientConnection::handleLogin(shared_ptr<LoginPacket> packet)
 	{
 		ui.UpdateSelectedItemPos(iUserID);
 	}
+	fprintf(stderr, "[NETDBG] handleLogin complete user=%d localPlayer=%p level=%p player=%p\n",
+		m_userIndex,
+		minecraft->localplayers[m_userIndex].get(),
+		minecraft->getLevel(packet->dimension),
+		minecraft->player.get());
 	
 	TelemetryManager->RecordLevelStart(m_userIndex, eSen_FriendOrMatch_Playing_With_Invited_Friends, eSen_CompeteOrCoop_Coop_and_Competitive, Minecraft::GetInstance()->getLevel(packet->dimension)->difficulty, app.GetLocalPlayerCount(), g_NetworkManager.GetOnlinePlayerCount());
 }
@@ -988,8 +1008,15 @@ void ClientConnection::handleMovePlayer(shared_ptr<MovePlayerPacket> packet)
     packet->z = player->z;
     packet->yView = player->y;
     connection->send(packet);
-    if (!started)
+	if (!started)
 	{		
+		fprintf(stderr, "[NETDBG] ClientConnection start user=%d pos=(%.2f,%.2f,%.2f) level=%p player=%p\n",
+			m_userIndex,
+			player->x,
+			player->y,
+			player->z,
+			level,
+			player.get());
 
 		if(!g_NetworkManager.IsHost() )
 		{

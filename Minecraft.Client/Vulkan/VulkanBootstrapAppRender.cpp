@@ -12,7 +12,7 @@
 
 namespace
 {
-constexpr size_t kMaxFrameVertices = 262144;
+constexpr size_t kInitialFrameVertices = 262144;
 constexpr VkFormat kDepthFormat = VK_FORMAT_D32_SFLOAT;
 
 std::vector<char> readBinaryFile(const std::string &path)
@@ -396,6 +396,7 @@ void VulkanBootstrapApp::createGraphicsPipeline()
   const std::vector<char> texturedFragmentShaderCode = readBinaryFile(buildShaderPath("mce_textured.frag.spv"));
   const std::vector<char> alphaTestFragmentShaderCode = readBinaryFile(buildShaderPath("mce_textured_alphatest.frag.spv"));
   const std::vector<char> fogFragmentShaderCode = readBinaryFile(buildShaderPath("mce_textured_fog.frag.spv"));
+  const std::vector<char> fogAlphaTestFragmentShaderCode = readBinaryFile(buildShaderPath("mce_textured_fog_alphatest.frag.spv"));
 
   const VkShaderModule colorVertexShaderModule = createShaderModule(device_, colorVertexShaderCode);
   const VkShaderModule colorFragmentShaderModule = createShaderModule(device_, colorFragmentShaderCode);
@@ -403,6 +404,7 @@ void VulkanBootstrapApp::createGraphicsPipeline()
   const VkShaderModule texturedFragmentShaderModule = createShaderModule(device_, texturedFragmentShaderCode);
   const VkShaderModule alphaTestFragmentShaderModule = createShaderModule(device_, alphaTestFragmentShaderCode);
   const VkShaderModule fogFragmentShaderModule = createShaderModule(device_, fogFragmentShaderCode);
+  const VkShaderModule fogAlphaTestFragmentShaderModule = createShaderModule(device_, fogAlphaTestFragmentShaderCode);
 
   VkVertexInputBindingDescription bindingDescription {};
   bindingDescription.binding = 0;
@@ -427,24 +429,21 @@ void VulkanBootstrapApp::createGraphicsPipeline()
   inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
   inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-  VkViewport viewport {};
-  viewport.x = 0.0f;
-  viewport.y = static_cast<float>(swapchainExtent_.height);
-  viewport.width = static_cast<float>(swapchainExtent_.width);
-  viewport.height = -static_cast<float>(swapchainExtent_.height);
-  viewport.minDepth = 0.0f;
-  viewport.maxDepth = 1.0f;
-
-  VkRect2D scissor {};
-  scissor.offset = {0, 0};
-  scissor.extent = swapchainExtent_;
-
   VkPipelineViewportStateCreateInfo viewportState {};
   viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   viewportState.viewportCount = 1;
-  viewportState.pViewports = &viewport;
+  viewportState.pViewports = nullptr;
   viewportState.scissorCount = 1;
-  viewportState.pScissors = &scissor;
+  viewportState.pScissors = nullptr;
+
+  const std::array<VkDynamicState, 2> dynamicStates {{
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR
+  }};
+  VkPipelineDynamicStateCreateInfo dynamicState {};
+  dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+  dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+  dynamicState.pDynamicStates = dynamicStates.data();
 
   VkPipelineRasterizationStateCreateInfo rasterizer {};
   rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -481,7 +480,8 @@ void VulkanBootstrapApp::createGraphicsPipeline()
         BlendMode blendMode,
         bool depthTestEnabled,
         bool depthWriteEnabled,
-        bool cullEnabled) {
+        bool cullEnabled,
+        bool cullClockwise) {
       VkShaderModule vertexShaderModule = variant == ShaderVariant::ColorOnly
         ? colorVertexShaderModule
         : texturedVertexShaderModule;
@@ -499,6 +499,9 @@ void VulkanBootstrapApp::createGraphicsPipeline()
         break;
       case ShaderVariant::TexturedFog:
         fragmentShaderModule = fogFragmentShaderModule;
+        break;
+      case ShaderVariant::TexturedFogAlphaTest:
+        fragmentShaderModule = fogAlphaTestFragmentShaderModule;
         break;
       default:
         throw std::runtime_error("Unsupported shader variant");
@@ -563,7 +566,10 @@ void VulkanBootstrapApp::createGraphicsPipeline()
 
       VkPipelineRasterizationStateCreateInfo rasterizerState = rasterizer;
       rasterizerState.cullMode = cullEnabled ? VK_CULL_MODE_BACK_BIT : VK_CULL_MODE_NONE;
-      rasterizerState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+      // We use a negative-height viewport when recording command buffers to
+      // match OpenGL's screen-space orientation. That flips winding, so front
+      // face must be inverted here to preserve legacy GL cull semantics.
+      rasterizerState.frontFace = cullClockwise ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
 
       VkGraphicsPipelineCreateInfo pipelineInfo {};
       pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -576,6 +582,7 @@ void VulkanBootstrapApp::createGraphicsPipeline()
       pipelineInfo.pMultisampleState = &multisampling;
       pipelineInfo.pDepthStencilState = &depthStencil;
       pipelineInfo.pColorBlendState = &colorBlending;
+      pipelineInfo.pDynamicState = &dynamicState;
       pipelineInfo.layout = pipelineLayout_;
       pipelineInfo.renderPass = renderPass_;
       pipelineInfo.subpass = 0;
@@ -600,25 +607,30 @@ void VulkanBootstrapApp::createGraphicsPipeline()
         {
           for (uint32_t cullIndex = 0; cullIndex < 2; ++cullIndex)
           {
-            const uint32_t pipelineIndex = getPipelineIndex(
-              variant,
-              blendMode,
-              depthTestIndex != 0,
-              depthWriteIndex != 0,
-              cullIndex != 0,
-              true);
-            pipelines_[pipelineIndex] = createPipelineForConfig(
-              variant,
-              blendMode,
-              depthTestIndex != 0,
-              depthWriteIndex != 0,
-              cullIndex != 0);
+            for (uint32_t clockwiseIndex = 0; clockwiseIndex < 2; ++clockwiseIndex)
+            {
+              const uint32_t pipelineIndex = getPipelineIndex(
+                variant,
+                blendMode,
+                depthTestIndex != 0,
+                depthWriteIndex != 0,
+                cullIndex != 0,
+                clockwiseIndex != 0);
+              pipelines_[pipelineIndex] = createPipelineForConfig(
+                variant,
+                blendMode,
+                depthTestIndex != 0,
+                depthWriteIndex != 0,
+                cullIndex != 0,
+                clockwiseIndex != 0);
+            }
           }
         }
       }
     }
   }
 
+  vkDestroyShaderModule(device_, fogAlphaTestFragmentShaderModule, nullptr);
   vkDestroyShaderModule(device_, fogFragmentShaderModule, nullptr);
   vkDestroyShaderModule(device_, alphaTestFragmentShaderModule, nullptr);
   vkDestroyShaderModule(device_, texturedFragmentShaderModule, nullptr);
@@ -654,9 +666,9 @@ void VulkanBootstrapApp::createFramebuffers()
   }
 }
 
-void VulkanBootstrapApp::createVertexBuffer()
+void VulkanBootstrapApp::createVertexBuffer(size_t vertexCapacity)
 {
-  const VkDeviceSize bufferSize = sizeof(Vertex) * kMaxFrameVertices;
+  const VkDeviceSize bufferSize = sizeof(Vertex) * vertexCapacity;
   createBuffer(
     bufferSize,
     VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -667,6 +679,39 @@ void VulkanBootstrapApp::createVertexBuffer()
   {
     throw std::runtime_error("vkMapMemory failed for vertex buffer");
   }
+  vertexBufferCapacity_ = vertexCapacity;
+}
+
+void VulkanBootstrapApp::ensureVertexBufferCapacity(size_t requiredVertices)
+{
+  if (requiredVertices == 0 || requiredVertices <= vertexBufferCapacity_)
+  {
+    return;
+  }
+
+  size_t newCapacity = std::max(vertexBufferCapacity_, kInitialFrameVertices);
+  while (newCapacity < requiredVertices)
+  {
+    newCapacity *= 2;
+  }
+
+  if (vertexBufferMapped_ != nullptr)
+  {
+    vkUnmapMemory(device_, vertexBufferMemory_);
+    vertexBufferMapped_ = nullptr;
+  }
+  if (vertexBuffer_ != VK_NULL_HANDLE)
+  {
+    vkDestroyBuffer(device_, vertexBuffer_, nullptr);
+    vertexBuffer_ = VK_NULL_HANDLE;
+  }
+  if (vertexBufferMemory_ != VK_NULL_HANDLE)
+  {
+    vkFreeMemory(device_, vertexBufferMemory_, nullptr);
+    vertexBufferMemory_ = VK_NULL_HANDLE;
+  }
+
+  createVertexBuffer(newCapacity);
 }
 
 void VulkanBootstrapApp::createCommandBuffers()
@@ -772,6 +817,14 @@ void VulkanBootstrapApp::createFallbackTexture()
 
 void VulkanBootstrapApp::drawFrame()
 {
+  std::vector<Vertex> frameVertices;
+  std::vector<DrawBatch> frameBatches;
+  {
+    std::lock_guard<std::mutex> lock(frameDataMutex_);
+    frameVertices = frameVertices_;
+    frameBatches = frameBatches_;
+  }
+
   vkWaitForFences(device_, 1, &inFlightFence_, VK_TRUE, std::numeric_limits<uint64_t>::max());
 
   uint32_t imageIndex = 0;
@@ -792,21 +845,18 @@ void VulkanBootstrapApp::drawFrame()
     throw std::runtime_error("vkAcquireNextImageKHR failed");
   }
 
-  if (!frameVertices_.empty())
+  if (!frameVertices.empty())
   {
-    if (frameVertices_.size() > kMaxFrameVertices)
-    {
-      throw std::runtime_error("Frame vertex budget exceeded");
-    }
+    ensureVertexBufferCapacity(frameVertices.size());
     std::memcpy(
       vertexBufferMapped_,
-      frameVertices_.data(),
-      frameVertices_.size() * sizeof(Vertex));
+      frameVertices.data(),
+      frameVertices.size() * sizeof(Vertex));
   }
 
   vkResetFences(device_, 1, &inFlightFence_);
   vkResetCommandBuffer(commandBuffers_[imageIndex], 0);
-  recordCommandBuffer(commandBuffers_[imageIndex], imageIndex);
+  recordCommandBuffer(commandBuffers_[imageIndex], imageIndex, frameBatches);
 
   const VkSemaphore waitSemaphores[] = {imageAvailableSemaphore_};
   const VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
@@ -848,7 +898,10 @@ void VulkanBootstrapApp::drawFrame()
   }
 }
 
-void VulkanBootstrapApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
+void VulkanBootstrapApp::recordCommandBuffer(
+  VkCommandBuffer commandBuffer,
+  uint32_t imageIndex,
+  const std::vector<DrawBatch> &frameBatches)
 {
   VkCommandBufferBeginInfo beginInfo {};
   beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -874,14 +927,81 @@ void VulkanBootstrapApp::recordCommandBuffer(VkCommandBuffer commandBuffer, uint
   renderPassInfo.pClearValues = clearValues.data();
 
   vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-  if (!frameBatches_.empty())
+  if (!frameBatches.empty())
   {
     const VkBuffer vertexBuffers[] = {vertexBuffer_};
     const VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    for (const DrawBatch &batch : frameBatches_)
+    for (const DrawBatch &batch : frameBatches)
     {
+      const uint32_t viewportWidth = batch.viewportWidth != 0 ? batch.viewportWidth : swapchainExtent_.width;
+      const uint32_t viewportHeight = batch.viewportHeight != 0 ? batch.viewportHeight : swapchainExtent_.height;
+      const int viewportX = batch.viewportX;
+      const int viewportY = batch.viewportY;
+
+      VkViewport viewport {};
+      viewport.x = static_cast<float>(viewportX);
+      viewport.y = static_cast<float>(viewportY + static_cast<int>(viewportHeight));
+      viewport.width = static_cast<float>(viewportWidth);
+      viewport.height = -static_cast<float>(viewportHeight);
+      viewport.minDepth = 0.0f;
+      viewport.maxDepth = 1.0f;
+      vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+      VkRect2D scissor {};
+      scissor.offset = {viewportX, viewportY};
+      scissor.extent = {viewportWidth, viewportHeight};
+      vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+      if (batch.clearFlags != 0)
+      {
+        std::array<VkClearAttachment, 2> clearAttachments {};
+        uint32_t clearAttachmentCount = 0;
+
+        if ((batch.clearFlags & GL_COLOR_BUFFER_BIT) != 0)
+        {
+          VkClearAttachment &colorAttachment = clearAttachments[clearAttachmentCount++];
+          colorAttachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+          colorAttachment.colorAttachment = 0;
+          colorAttachment.clearValue.color = {
+            {clearColour_[0], clearColour_[1], clearColour_[2], clearColour_[3]}
+          };
+        }
+
+        if ((batch.clearFlags & (GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT)) != 0)
+        {
+          VkClearAttachment &depthAttachment = clearAttachments[clearAttachmentCount++];
+          depthAttachment.aspectMask = 0;
+          if ((batch.clearFlags & GL_DEPTH_BUFFER_BIT) != 0)
+          {
+            depthAttachment.aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+          }
+          if ((batch.clearFlags & GL_STENCIL_BUFFER_BIT) != 0)
+          {
+            depthAttachment.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+          }
+          depthAttachment.clearValue.depthStencil = {1.0f, 0};
+        }
+
+        if (clearAttachmentCount > 0)
+        {
+          VkClearRect clearRect {};
+          clearRect.rect.offset = {viewportX, viewportY};
+          clearRect.rect.extent = {viewportWidth, viewportHeight};
+          clearRect.baseArrayLayer = 0;
+          clearRect.layerCount = 1;
+          vkCmdClearAttachments(
+            commandBuffer,
+            clearAttachmentCount,
+            clearAttachments.data(),
+            1,
+            &clearRect);
+        }
+        continue;
+      }
+
+      vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
       const VkPipeline pipeline = getPipelineForBatch(batch);
       if (pipeline == VK_NULL_HANDLE)
       {
@@ -1271,14 +1391,15 @@ uint32_t VulkanBootstrapApp::getPipelineIndex(
   bool depthTestEnabled,
   bool depthWriteEnabled,
   bool cullEnabled,
-  bool) const
+  bool cullClockwise) const
 {
   return
-    static_cast<uint32_t>(variant) * 24u +
-    static_cast<uint32_t>(blendMode) * 8u +
-    (depthTestEnabled ? 4u : 0u) +
-    (depthWriteEnabled ? 2u : 0u) +
-    (cullEnabled ? 1u : 0u);
+    static_cast<uint32_t>(variant) * 48u +
+    static_cast<uint32_t>(blendMode) * 16u +
+    (depthTestEnabled ? 8u : 0u) +
+    (depthWriteEnabled ? 4u : 0u) +
+    (cullEnabled ? 2u : 0u) +
+    (cullClockwise ? 1u : 0u);
 }
 
 int VulkanBootstrapApp::allocateTextureSlot()
@@ -1343,6 +1464,10 @@ void VulkanBootstrapApp::setTextureLinearFiltering(int index, bool enabled)
   {
     return;
   }
+  if (textureSlots_[index].linearFiltering == enabled)
+  {
+    return;
+  }
 
   textureSlots_[index].linearFiltering = enabled;
   updateTextureDescriptor(index);
@@ -1351,6 +1476,10 @@ void VulkanBootstrapApp::setTextureLinearFiltering(int index, bool enabled)
 void VulkanBootstrapApp::setTextureClampAddress(int index, bool enabled)
 {
   if (index < 0 || index >= static_cast<int>(kMaxTextures) || !textureSlots_[index].allocated)
+  {
+    return;
+  }
+  if (textureSlots_[index].clampAddress == enabled)
   {
     return;
   }
