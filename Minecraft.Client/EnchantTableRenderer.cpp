@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "BookModel.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.entity.h"
-#include "..\Minecraft.World\Mth.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.entity.h"
+#include "../Minecraft.World/Mth.h"
 #include "EnchantTableRenderer.h"
 
 EnchantTableRenderer::EnchantTableRenderer()

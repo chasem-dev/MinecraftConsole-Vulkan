@@ -1,5 +1,7 @@
 #include "stdafx.h"
+#ifndef __APPLE__
 #include <xhash>
+#endif
 
 #include "Hasher.h"
 
@@ -19,7 +21,11 @@ wstring Hasher::getHash(wstring &name)
 		//return new BigInteger(1, m.digest()).toString(16);
 
 		// TODO 4J Stu - Will this hash us with the same distribution as the MD5?
+#ifdef __APPLE__
+		return _toString( std::hash<wstring>{}( s ) );
+#else
 		return _toString( hash_value( s ) );
+#endif
 	//}
 	//catch (NoSuchAlgorithmException e)
 	//{

@@ -3,8 +3,7 @@
 
 #include "stdafx.h"
 #include "PS3_PlayerUID.h"
-#include "..\Minecraft.World\StringHelpers.h"
-
+#include "../Minecraft.World/StringHelpers.h"
 std::size_t PlayerUID::Hash::operator()(const PlayerUID& k) const
 {
 	//  now only hashing against the local ID, as this is now unique across the network too.

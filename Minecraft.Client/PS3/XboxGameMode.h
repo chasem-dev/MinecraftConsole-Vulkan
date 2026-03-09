@@ -1,6 +1,5 @@
 #pragma once
-#include "..\Common\Tutorial\TutorialMode.h"
-
+#include "../Common/Tutorial/TutorialMode.h"
 class XboxGameMode : public TutorialMode
 {
 public:	

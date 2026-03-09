@@ -4,8 +4,8 @@
 #ifdef _WINDOWS64
 #include "stubs.h"
 #include "WinsockNetLayer.h"
-#include "..\..\Common\Network\PlatformNetworkManagerStub.h"
-#include "..\..\..\Minecraft.World\Socket.h"
+#include "../../Common/Network/PlatformNetworkManagerStub.h"
+#include "../../../Minecraft.World/Socket.h"
 #include "Extrax64Stubs.h"
 #include "miniupnpc/miniupnpc.h"
 #include "miniupnpc/upnpcommands.h"

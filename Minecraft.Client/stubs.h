@@ -1,5 +1,63 @@
 #pragma once
 
+#ifdef GL_BYTE
+#undef GL_BYTE
+#endif
+#ifdef GL_FLOAT
+#undef GL_FLOAT
+#endif
+#ifdef GL_UNSIGNED_BYTE
+#undef GL_UNSIGNED_BYTE
+#endif
+#ifdef GL_COLOR_ARRAY
+#undef GL_COLOR_ARRAY
+#endif
+#ifdef GL_VERTEX_ARRAY
+#undef GL_VERTEX_ARRAY
+#endif
+#ifdef GL_NORMAL_ARRAY
+#undef GL_NORMAL_ARRAY
+#endif
+#ifdef GL_TEXTURE_COORD_ARRAY
+#undef GL_TEXTURE_COORD_ARRAY
+#endif
+#ifdef GL_COMPILE
+#undef GL_COMPILE
+#endif
+#ifdef GL_NORMALIZE
+#undef GL_NORMALIZE
+#endif
+#ifdef GL_RESCALE_NORMAL
+#undef GL_RESCALE_NORMAL
+#endif
+#ifdef GL_SMOOTH
+#undef GL_SMOOTH
+#endif
+#ifdef GL_FLAT
+#undef GL_FLAT
+#endif
+#ifdef GL_RGBA
+#undef GL_RGBA
+#endif
+#ifdef GL_BGRA
+#undef GL_BGRA
+#endif
+#ifdef GL_BGR
+#undef GL_BGR
+#endif
+#ifdef GL_POLYGON_OFFSET_FILL
+#undef GL_POLYGON_OFFSET_FILL
+#endif
+#ifdef GL_FRONT
+#undef GL_FRONT
+#endif
+#ifdef GL_BACK
+#undef GL_BACK
+#endif
+#ifdef GL_FRONT_AND_BACK
+#undef GL_FRONT_AND_BACK
+#endif
+
 
 
 const int GL_BYTE = 0;
@@ -35,12 +93,29 @@ const int GL_QUERY_RESULT_ARB = 0;
 const int GL_POLYGON_OFFSET_FILL = 0;
 
 const int GL_FRONT = 0;
+#ifndef __APPLE__
 const int GL_BACK = 1;
+#endif
 const int GL_FRONT_AND_BACK = 2;
 
 const int GL_COLOR_MATERIAL = 0;
 
 const int GL_AMBIENT_AND_DIFFUSE = 0;
+
+// Texture coordinate generation
+const int GL_S = 0x2000;
+const int GL_T = 0x2001;
+const int GL_R = 0x2002;
+const int GL_Q = 0x2003;
+const int GL_TEXTURE_GEN_S = 0x0C60;
+const int GL_TEXTURE_GEN_T = 0x0C61;
+const int GL_TEXTURE_GEN_R = 0x0C62;
+const int GL_TEXTURE_GEN_Q = 0x0C63;
+const int GL_TEXTURE_GEN_MODE = 0x2500;
+const int GL_OBJECT_LINEAR = 0x2401;
+const int GL_EYE_LINEAR = 0x2400;
+const int GL_OBJECT_PLANE = 0x2501;
+const int GL_EYE_PLANE = 0x2502;
 
 const int GL_TEXTURE1 = 0;
 const int GL_TEXTURE0 = 1;

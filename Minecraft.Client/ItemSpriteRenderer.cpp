@@ -1,11 +1,10 @@
 #include "stdafx.h"
 #include "ItemSpriteRenderer.h"
 #include "EntityRenderDispatcher.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.projectile.h"
-#include "..\Minecraft.World\net.minecraft.world.item.alchemy.h"
-#include "..\Minecraft.World\net.minecraft.world.item.h"
-#include "..\Minecraft.World\net.minecraft.world.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.projectile.h"
+#include "../Minecraft.World/net.minecraft.world.item.alchemy.h"
+#include "../Minecraft.World/net.minecraft.world.item.h"
+#include "../Minecraft.World/net.minecraft.world.h"
 ItemSpriteRenderer::ItemSpriteRenderer(Item *sourceItem, int sourceItemAuxValue /*= 0*/) : EntityRenderer()
 {
 	this->sourceItem = sourceItem;

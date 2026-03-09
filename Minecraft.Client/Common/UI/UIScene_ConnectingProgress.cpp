@@ -1,8 +1,7 @@
 #include "stdafx.h"
 #include "UI.h"
 #include "UIScene_ConnectingProgress.h"
-#include "..\..\Minecraft.h"
-
+#include "../../Minecraft.h"
 UIScene_ConnectingProgress::UIScene_ConnectingProgress(int iPad, void *_initData, UILayer *parentLayer) : UIScene(iPad, parentLayer)
 {
 	// Setup all the Iggy references we need for this scene

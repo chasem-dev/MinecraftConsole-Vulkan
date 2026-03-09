@@ -2,8 +2,7 @@
 #include "XUI_Helper.h"
 #include "../media/xuiscene_leaderboards.h"
 
-#include "..\Leaderboards\LeaderboardManager.h"
-
+#include "../Leaderboards/LeaderboardManager.h"
 class CXuiCtrlCraftIngredientSlot;
 
 class CScene_Leaderboards : public CXuiSceneImpl, public LeaderboardReadListener

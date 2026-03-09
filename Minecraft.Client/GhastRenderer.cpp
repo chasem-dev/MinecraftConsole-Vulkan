@@ -1,8 +1,7 @@
 #include "stdafx.h"
 #include "GhastRenderer.h"
 #include "GhastModel.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.monster.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.monster.h"
 GhastRenderer::GhastRenderer() : MobRenderer(new GhastModel(), 0.5f)
 {
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cfloat>
+
 class ChunkRebuildData;
 
 class Tesselator {

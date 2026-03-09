@@ -8,8 +8,7 @@
 #include "net.minecraft.world.item.enchantment.h"
 #include "Monster.h"
 
-#include "..\Minecraft.Client\Minecraft.h"
-
+#include "../Minecraft.Client/Minecraft.h"
 
 
 void Monster::_init()

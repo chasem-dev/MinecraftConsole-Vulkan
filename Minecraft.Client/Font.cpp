@@ -3,11 +3,10 @@
 #include "Font.h"
 #include "Options.h"
 #include "Tesselator.h"
-#include "..\Minecraft.World\IntBuffer.h"
-#include "..\Minecraft.World\net.minecraft.h"
-#include "..\Minecraft.World\StringHelpers.h"
-#include "..\Minecraft.World\Random.h"
-
+#include "../Minecraft.World/IntBuffer.h"
+#include "../Minecraft.World/net.minecraft.h"
+#include "../Minecraft.World/StringHelpers.h"
+#include "../Minecraft.World/Random.h"
 Font::Font(Options *options, const wstring& name, Textures* textures, bool enforceUnicode, TEXTURE_NAME textureName, int cols, int rows, int charWidth, int charHeight, unsigned short charMap[]/* = nullptr */) : textures(textures)
 {
 	int charC = cols * rows; // Number of characters in the font
@@ -50,8 +49,17 @@ Font::Font(Options *options, const wstring& name, Textures* textures, bool enfor
     }
 	*/
 
-    int w = img->getWidth();
-    int h = img->getHeight();
+    int w = img ? img->getWidth() : 0;
+    int h = img ? img->getHeight() : 0;
+
+    if (w == 0 || h == 0)
+    {
+        // Missing font texture — use default char widths
+        for (int i = 0; i < charC; i++)
+            charWidths[i] = m_charWidth;
+        if (img) delete img;
+        return;
+    }
     intArray rawPixels(w * h);
     img->getRGB(0, 0, w, h, rawPixels, 0, w);
 

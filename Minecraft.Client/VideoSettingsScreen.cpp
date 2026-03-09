@@ -4,8 +4,7 @@
 #include "SlideButton.h"
 #include "Options.h"
 #include "ControlsScreen.h"
-#include "..\Minecraft.World\net.minecraft.locale.h"
-
+#include "../Minecraft.World/net.minecraft.locale.h"
 VideoSettingsScreen::VideoSettingsScreen(Screen *lastScreen, Options *options)
 {
 	this->title = L"Video Settings"; // 4J - added

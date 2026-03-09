@@ -3,9 +3,8 @@
 class C4JStringTable;
 #include <np_toolkit.h>
 
-#include "..\..\Common\Network\Sony\SonyCommerce.h"
-#include "..\..\Common\Network\Sony\SonyRemoteStorage.h"
-
+#include "../../Common/Network/Sony/SonyCommerce.h"
+#include "../../Common/Network/Sony/SonyRemoteStorage.h"
 #define PRODUCT_CODE_SIZE 9
 #define SAVEFOLDERPREFIX_SIZE 10
 #define COMMERCE_CATEGORY_SIZE 19

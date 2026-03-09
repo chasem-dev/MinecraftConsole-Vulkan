@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "SlimeRenderer.h"	
-#include "..\Minecraft.World\net.minecraft.world.entity.monster.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.monster.h"
 SlimeRenderer::SlimeRenderer(Model *model, Model *armor, float shadow) : MobRenderer(model, shadow)
 {
 	this->armor = armor;

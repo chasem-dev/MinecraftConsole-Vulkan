@@ -341,3 +341,12 @@ ASALocalRun/
 x64_Release/
 x64_Debug/
 *.lib
+.planning/
+
+build-macos/
+build-*/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+_deps/
+

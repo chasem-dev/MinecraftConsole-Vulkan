@@ -1,9 +1,8 @@
 #include "stdafx.h"
 #include "CreeperRenderer.h"
 #include "CreeperModel.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.monster.h"
-#include "..\Minecraft.World\Mth.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.monster.h"
+#include "../Minecraft.World/Mth.h"
 CreeperRenderer::CreeperRenderer() : MobRenderer( new CreeperModel(), 0.5f )
 {
 	armorModel = new CreeperModel(2);

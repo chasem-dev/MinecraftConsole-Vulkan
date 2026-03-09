@@ -2,7 +2,10 @@
 class Mob;
 class Options;
 using namespace std;
-#include "..\..\Minecraft.World\SoundTypes.h"
+#include "../../Minecraft.World/SoundTypes.h"
+
+// On Apple, F32, HMSOUNDBANK, HDIGDRIVER, HSTREAM and the rest of the
+// Miles types are provided by Apple/AppleStubs.h (included via stdafx.h).
 
 enum eMUSICFILES
 {

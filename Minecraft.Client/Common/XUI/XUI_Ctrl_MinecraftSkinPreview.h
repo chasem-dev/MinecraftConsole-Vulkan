@@ -2,10 +2,8 @@
 
 #include <string>
 #include <XuiApp.h>
-#include "..\..\Textures.h"
-//#include "..\..\Xbox\DLC\DLCSkinFile.h"
-#include "..\..\Model.h"
-
+#include "../../Textures.h"//#include "..\..\Xbox\DLC\DLCSkinFile.h"
+#include "../../Model.h"
 using namespace std;
 
 class EntityRenderer;

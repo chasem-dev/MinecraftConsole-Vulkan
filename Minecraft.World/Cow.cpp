@@ -9,7 +9,7 @@
 #include "net.minecraft.world.entity.player.h"
 #include "net.minecraft.stats.h"
 #include "Cow.h"
-#include "..\Minecraft.Client\Textures.h"
+#include "../Minecraft.Client/Textures.h"
 #include "MobCategory.h"
 
 

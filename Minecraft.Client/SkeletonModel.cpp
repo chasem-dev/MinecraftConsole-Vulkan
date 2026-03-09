@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "SkeletonModel.h"
-#include "..\Minecraft.World\Mth.h"
+#include "../Minecraft.World/Mth.h"
 #include "ModelPart.h"
 
 void SkeletonModel::_init(float g)

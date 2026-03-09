@@ -5,13 +5,11 @@
 #include "net.minecraft.world.level.tile.h"
 #include "FireTile.h"
 #include "SoundTypes.h"
-#include "..\Minecraft.Client\MinecraftServer.h"
-#include "..\Minecraft.Client\PlayerList.h"
-
+#include "../Minecraft.Client/MinecraftServer.h"
+#include "../Minecraft.Client/PlayerList.h"
 // AP - added for Vita to set Alpha Cut out
 #include "IntBuffer.h"
-#include "..\Minecraft.Client\Tesselator.h"
-
+#include "../Minecraft.Client/Tesselator.h"
 
 const wstring FireTile::TEXTURE_FIRST = L"fire_0";
 const wstring FireTile::TEXTURE_SECOND = L"fire_1";

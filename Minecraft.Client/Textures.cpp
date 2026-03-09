@@ -3,20 +3,19 @@
 #include "TexturePackRepository.h"
 #include "HttpTexture.h"
 #include "MemTexture.h"
-#include "..\Minecraft.World\InputStream.h"
-#include "..\Minecraft.World\IntBuffer.h"
-#include "..\Minecraft.World\ByteBuffer.h"
+#include "../Minecraft.World/InputStream.h"
+#include "../Minecraft.World/IntBuffer.h"
+#include "../Minecraft.World/ByteBuffer.h"
 #include "TexturePack.h"
 #include "Options.h"
-#include "..\Minecraft.Client\MemTextureProcessor.h"
+#include "../Minecraft.Client/MemTextureProcessor.h"
 #include "MobSkinMemTextureProcessor.h"
 #include "PreStitchedTextureMap.h"
 #include "StitchedTexture.h"
 #include "Texture.h"
-#include "..\Minecraft.World\net.minecraft.world.h"
-#include "..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\Minecraft.World\StringHelpers.h"
-
+#include "../Minecraft.World/net.minecraft.world.h"
+#include "../Minecraft.World/net.minecraft.world.level.h"
+#include "../Minecraft.World/StringHelpers.h"
 bool Textures::MIPMAP = true;
 C4JRender::eTextureFormat Textures::TEXTURE_FORMAT = C4JRender::TEXTURE_FORMAT_RxGyBzAw;
 
@@ -127,6 +126,9 @@ wchar_t *Textures::preLoaded[TN_COUNT] =
 	L"font/Default",
 	L"font/alternate",
 
+	L"gui/background",
+	L"title/mclogo",
+
 	// skin packs
 /*	L"/SP1",
 	L"/SP2",
@@ -205,7 +207,7 @@ wchar_t *Textures::preLoaded[TN_COUNT] =
 	L"/AH_0008",
 	L"/AH_0009",*/
 
-	L"gui/items",	
+	L"gui/items",
 	L"terrain",
 };
 
@@ -539,7 +541,7 @@ void Textures::loadTexture(BufferedImage *img, int id, bool blur, bool clamp)
 		rawPixels = anaglyph(rawPixels);
 	}
 
-    byteArray newPixels(w * h * 4);	
+    byteArray newPixels(w * h * 4);
     for (unsigned int i = 0; i < rawPixels.length; i++)
 	{
         int a = (rawPixels[i] >> 24) & 0xff;
@@ -567,7 +569,7 @@ void Textures::loadTexture(BufferedImage *img, int id, bool blur, bool clamp)
 
 	delete[] rawPixels.data;
 	delete[] newPixels.data;
-	
+
 	if (MIPMAP) 
 	{
 		// 4J-PB - In the new XDK, the CreateTexture will fail if the number of mipmaps is higher than the width & height passed in will allow!

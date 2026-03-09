@@ -4,7 +4,7 @@
 #include "net.minecraft.world.phys.h"
 #include "net.minecraft.world.damagesource.h"
 #include "net.minecraft.h"
-#include "..\Minecraft.Client\Textures.h"
+#include "../Minecraft.Client/Textures.h"
 #include "Silverfish.h"
 #include "SoundTypes.h"
 

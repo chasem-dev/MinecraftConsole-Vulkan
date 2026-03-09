@@ -155,7 +155,7 @@ local void make_crc_table()
             fprintf(out, "  },\n  {\n");
             write_table(out, crc_table[k]);
         }
-        fprintf(out, "#endif\n");
+        fprintf(out, "\n" "#endif\n");
 #  endif /* BYFOUR */
         fprintf(out, "  }\n};\n");
         fclose(out);

@@ -1,8 +1,7 @@
 #include "stdafx.h"
 #include "WolfRenderer.h"
 #include "MultiPlayerLocalPlayer.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.animal.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.animal.h"
 WolfRenderer::WolfRenderer(Model *model, Model *armor, float shadow) : MobRenderer(model, shadow)
 {
 	setArmor(armor);

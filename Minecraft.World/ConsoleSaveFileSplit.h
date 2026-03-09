@@ -28,7 +28,7 @@ private:
 	public:
 		int64_t			lastWritten;
 		unsigned int	fileRef;
-		bool			operator<(const DirtyRegionFile& rhs) { return lastWritten < rhs.lastWritten; }
+		bool			operator<(const DirtyRegionFile& rhs) const { return lastWritten < rhs.lastWritten; }
 	};
 
 	class RegionFileReference

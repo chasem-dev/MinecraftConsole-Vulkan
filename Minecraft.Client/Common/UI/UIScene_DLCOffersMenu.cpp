@@ -2,20 +2,19 @@
 
 #include "UI.h"
 #include "UIScene_DLCOffersMenu.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-
+#include "../../../Minecraft.World/StringHelpers.h"
 #if defined(__PS3__) || defined(__ORBIS__) || defined (__PSVITA__)
-#include "Common\Network\Sony\SonyHttp.h"
+#include "Common/Network/Sony/SonyHttp.h"
 #endif
 
 #ifdef __PSVITA__
-#include "PSVita\Network\SonyCommerce_Vita.h"
+#include "PSVita/Network/SonyCommerce_Vita.h"
 #endif
 
 // Windows64 DLC store stuff blahhhh - whisper
 #ifdef _WINDOWS64
 #include "Windows64_DLCOffers.h"
-#include "..\..\User.h"
+#include "../../User.h"
 #include "Windows64_Minecraft.h"
 #include <unordered_map>
 static std::unordered_map<int,int> s_offerIndexToListPos;

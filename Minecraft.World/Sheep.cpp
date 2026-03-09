@@ -16,7 +16,7 @@ using namespace std;
 #include "net.minecraft.world.entity.global.h"
 #include "net.minecraft.world.entity.player.h"
 #include "Sheep.h"
-#include "..\Minecraft.Client\Textures.h"
+#include "../Minecraft.Client/Textures.h"
 #include "MobCategory.h"
 #include "GenericStats.h"
 

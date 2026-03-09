@@ -2,6 +2,24 @@
 #include "UI.h"
 #include "UIScene_SettingsOptionsMenu.h"
 
+#if defined(__APPLE__)
+namespace
+{
+static int clampAppleOptionValue(int value, int minValue, int maxValue)
+{
+	if(value < minValue)
+	{
+		return minValue;
+	}
+	if(value > maxValue)
+	{
+		return maxValue;
+	}
+	return value;
+}
+}
+#endif
+
 int UIScene_SettingsOptionsMenu::m_iDifficultySettingA[4]=
 {
 	IDS_DIFFICULTY_PEACEFUL,
@@ -61,6 +79,9 @@ UIScene_SettingsOptionsMenu::UIScene_SettingsOptionsMenu(int iPad, void *initDat
 	}
 	m_sliderAutosave.setAllPossibleLabels(9,autosaveLabels);
 	m_sliderAutosave.init(autosaveLabels[ucValue],eControl_Autosave,0,8,ucValue);
+#if defined(__APPLE__)
+	m_appleAutosaveValue = ucValue;
+#endif
 
 #if defined(_XBOX_ONE) || defined(__ORBIS__)
 	removeControl(&m_sliderAutosave,true);
@@ -74,6 +95,9 @@ UIScene_SettingsOptionsMenu::UIScene_SettingsOptionsMenu(int iPad, void *initDat
 	}
 	m_sliderDifficulty.setAllPossibleLabels(4,difficultyLabels);
 	m_sliderDifficulty.init(difficultyLabels[ucValue],eControl_Difficulty,0,3,ucValue);
+#if defined(__APPLE__)
+	m_appleDifficultyValue = ucValue;
+#endif
 
  	wstring wsText=app.GetString(m_iDifficultySettingA[app.GetGameSettings(m_iPad,eGameSetting_Difficulty)]);
 	EHTMLFontSize size = eHTMLSize_Normal;
@@ -136,6 +160,11 @@ UIScene_SettingsOptionsMenu::UIScene_SettingsOptionsMenu(int iPad, void *initDat
 		app.AdjustSplitscreenScene(m_hObj,&m_OriginalPosition,m_iPad);
 #endif
 	}
+
+#if defined(__APPLE__)
+	m_appleSelectedIndex = 0;
+	appleSetSelectedIndex(0);
+#endif
 }
 
 UIScene_SettingsOptionsMenu::~UIScene_SettingsOptionsMenu()
@@ -208,14 +237,52 @@ void UIScene_SettingsOptionsMenu::handleInput(int iPad, int key, bool repeat, bo
 #ifdef __ORBIS__
 	case ACTION_MENU_TOUCHPAD_PRESS:
 #endif
+#if defined(__APPLE__)
+		if(pressed)
+		{
+			extern int AppleMouse_GetHoveredControlId();
+			extern bool AppleMouse_IsOverButton();
+			int controlId = AppleMouse_IsOverButton() ? AppleMouse_GetHoveredControlId() : appleGetControlIdForVisibleRow(appleGetSelectedIndex());
+			if(controlId >= 0)
+			{
+				appleActivateControl(controlId);
+			}
+		}
+		break;
+#else
 		sendInputToMovie(key, repeat, pressed, released);
 		break;
+#endif
 	case ACTION_MENU_UP:
 	case ACTION_MENU_DOWN:
+#if defined(__APPLE__)
+		if(pressed && !repeat)
+		{
+			int delta = key == ACTION_MENU_UP ? -1 : 1;
+			appleSetSelectedIndex(appleGetSelectedIndex() + delta);
+			ui.PlayUISFX(eSFX_Press);
+		}
+		break;
+#else
 	case ACTION_MENU_LEFT:
 	case ACTION_MENU_RIGHT:
 		sendInputToMovie(key, repeat, pressed, released);
 		break;
+#endif
+#if defined(__APPLE__)
+	case ACTION_MENU_LEFT:
+	case ACTION_MENU_RIGHT:
+		if(pressed)
+		{
+			int controlId = appleGetControlIdForVisibleRow(appleGetSelectedIndex());
+			int delta = key == ACTION_MENU_LEFT ? -1 : 1;
+			if(appleAdjustControl(controlId, delta))
+			{
+				ui.PlayUISFX(eSFX_Press);
+			}
+		}
+		break;
+#endif
 	}
 }
 
@@ -227,6 +294,9 @@ void UIScene_SettingsOptionsMenu::handleSliderMove(F64 sliderId, F64 currentValu
 	{
 	case eControl_Autosave:
 		m_sliderAutosave.handleSliderMove(value);
+#if defined(__APPLE__)
+		m_appleAutosaveValue = value;
+#endif
 
 		app.SetGameSettings(m_iPad,eGameSetting_Autosave,value);
 		// Update the autosave timer
@@ -235,6 +305,9 @@ void UIScene_SettingsOptionsMenu::handleSliderMove(F64 sliderId, F64 currentValu
 		break;
 	case eControl_Difficulty:
 		m_sliderDifficulty.handleSliderMove(value);
+#if defined(__APPLE__)
+		m_appleDifficultyValue = value;
+#endif
 
 		app.SetGameSettings(m_iPad,eGameSetting_Difficulty,value);
 		
@@ -251,3 +324,260 @@ void UIScene_SettingsOptionsMenu::handleSliderMove(F64 sliderId, F64 currentValu
 		break;
 	}
 }
+
+#if defined(__APPLE__)
+int UIScene_SettingsOptionsMenu::appleGetSelectedIndex()
+{
+	int count = appleGetVisibleRowCount();
+	if(count <= 0)
+	{
+		return 0;
+	}
+	if(m_appleSelectedIndex < 0)
+	{
+		return 0;
+	}
+	if(m_appleSelectedIndex >= count)
+	{
+		return count - 1;
+	}
+	return m_appleSelectedIndex;
+}
+
+void UIScene_SettingsOptionsMenu::appleSetSelectedIndex(int index)
+{
+	int count = appleGetVisibleRowCount();
+	if(count <= 0)
+	{
+		m_appleSelectedIndex = 0;
+		return;
+	}
+	if(index < 0)
+	{
+		index = 0;
+	}
+	if(index >= count)
+	{
+		index = count - 1;
+	}
+	m_appleSelectedIndex = index;
+}
+
+int UIScene_SettingsOptionsMenu::appleGetVisibleRowCount()
+{
+	int count = 3;
+	if(ProfileManager.GetPrimaryPad() == m_iPad && (m_bNotInGame || g_NetworkManager.IsHost()))
+	{
+		++count;
+	}
+	if(m_bMashUpWorldsUnhideOption)
+	{
+		++count;
+	}
+	if(ProfileManager.GetPrimaryPad() == m_iPad && (m_bNotInGame || g_NetworkManager.IsHost()))
+	{
+		++count;
+	}
+	if(ProfileManager.GetPrimaryPad() == m_iPad && m_bNotInGame)
+	{
+		++count;
+	}
+	return count;
+}
+
+int UIScene_SettingsOptionsMenu::appleGetControlIdForVisibleRow(int index)
+{
+	int visibleIndex = 0;
+	int controls[] =
+	{
+		eControl_ViewBob,
+		eControl_ShowHints,
+		eControl_ShowTooltips,
+		eControl_InGameGamertags,
+		eControl_ShowMashUpWorlds,
+		eControl_Autosave,
+		eControl_Difficulty
+	};
+
+	for(unsigned int i = 0; i < sizeof(controls) / sizeof(controls[0]); ++i)
+	{
+		int controlId = controls[i];
+		bool visible = false;
+		switch(controlId)
+		{
+		case eControl_ViewBob:
+		case eControl_ShowHints:
+		case eControl_ShowTooltips:
+			visible = true;
+			break;
+		case eControl_InGameGamertags:
+			visible = ProfileManager.GetPrimaryPad() == m_iPad && (m_bNotInGame || g_NetworkManager.IsHost());
+			break;
+		case eControl_ShowMashUpWorlds:
+			visible = m_bMashUpWorldsUnhideOption;
+			break;
+		case eControl_Autosave:
+			visible = ProfileManager.GetPrimaryPad() == m_iPad && (m_bNotInGame || g_NetworkManager.IsHost());
+			break;
+		case eControl_Difficulty:
+			visible = ProfileManager.GetPrimaryPad() == m_iPad && m_bNotInGame;
+			break;
+		}
+
+		if(!visible)
+		{
+			continue;
+		}
+
+		if(visibleIndex == index)
+		{
+			return controlId;
+		}
+		++visibleIndex;
+	}
+
+	return -1;
+}
+
+const wchar_t *UIScene_SettingsOptionsMenu::appleGetLabelForVisibleRow(int index)
+{
+	int controlId = appleGetControlIdForVisibleRow(index);
+	switch(controlId)
+	{
+	case eControl_ViewBob:
+		return m_checkboxViewBob.getLabel();
+	case eControl_ShowHints:
+		return m_checkboxShowHints.getLabel();
+	case eControl_ShowTooltips:
+		return m_checkboxShowTooltips.getLabel();
+	case eControl_InGameGamertags:
+		return m_checkboxInGameGamertags.getLabel();
+	case eControl_ShowMashUpWorlds:
+		return m_checkboxMashupWorlds.getLabel();
+	case eControl_Autosave:
+		return m_sliderAutosave.getLabel();
+	case eControl_Difficulty:
+		return m_sliderDifficulty.getLabel();
+	default:
+		return L"";
+	}
+}
+
+bool UIScene_SettingsOptionsMenu::appleIsCheckboxControl(int controlId)
+{
+	return controlId >= eControl_ViewBob && controlId <= eControl_ShowMashUpWorlds;
+}
+
+bool UIScene_SettingsOptionsMenu::appleIsSliderControl(int controlId)
+{
+	return controlId == eControl_Autosave || controlId == eControl_Difficulty;
+}
+
+bool UIScene_SettingsOptionsMenu::appleGetCheckboxValue(int controlId)
+{
+	switch(controlId)
+	{
+	case eControl_ViewBob:
+		return m_checkboxViewBob.IsChecked();
+	case eControl_ShowHints:
+		return m_checkboxShowHints.IsChecked();
+	case eControl_ShowTooltips:
+		return m_checkboxShowTooltips.IsChecked();
+	case eControl_InGameGamertags:
+		return m_checkboxInGameGamertags.IsChecked();
+	case eControl_ShowMashUpWorlds:
+		return m_checkboxMashupWorlds.IsChecked();
+	default:
+		return false;
+	}
+}
+
+int UIScene_SettingsOptionsMenu::appleGetSliderValue(int controlId)
+{
+	switch(controlId)
+	{
+	case eControl_Autosave:
+		return m_appleAutosaveValue;
+	case eControl_Difficulty:
+		return m_appleDifficultyValue;
+	default:
+		return 0;
+	}
+}
+
+int UIScene_SettingsOptionsMenu::appleGetSliderMin(int controlId)
+{
+	switch(controlId)
+	{
+	case eControl_Autosave:
+	case eControl_Difficulty:
+		return 0;
+	default:
+		return 0;
+	}
+}
+
+int UIScene_SettingsOptionsMenu::appleGetSliderMax(int controlId)
+{
+	switch(controlId)
+	{
+	case eControl_Autosave:
+		return 8;
+	case eControl_Difficulty:
+		return 3;
+	default:
+		return 0;
+	}
+}
+
+void UIScene_SettingsOptionsMenu::appleActivateControl(int controlId)
+{
+	if(appleIsCheckboxControl(controlId))
+	{
+		bool nextValue = !appleGetCheckboxValue(controlId);
+		switch(controlId)
+		{
+		case eControl_ViewBob:
+			m_checkboxViewBob.setChecked(nextValue);
+			break;
+		case eControl_ShowHints:
+			m_checkboxShowHints.setChecked(nextValue);
+			break;
+		case eControl_ShowTooltips:
+			m_checkboxShowTooltips.setChecked(nextValue);
+			break;
+		case eControl_InGameGamertags:
+			m_checkboxInGameGamertags.setChecked(nextValue);
+			break;
+		case eControl_ShowMashUpWorlds:
+			m_checkboxMashupWorlds.setChecked(nextValue);
+			break;
+		}
+		ui.PlayUISFX(eSFX_Press);
+		return;
+	}
+
+	if(appleIsSliderControl(controlId) && appleAdjustControl(controlId, 1))
+	{
+		ui.PlayUISFX(eSFX_Press);
+	}
+}
+
+bool UIScene_SettingsOptionsMenu::appleAdjustControl(int controlId, int delta)
+{
+	if(!appleIsSliderControl(controlId) || delta == 0)
+	{
+		return false;
+	}
+
+	int value = appleGetSliderValue(controlId);
+	int newValue = clampAppleOptionValue(value + delta, appleGetSliderMin(controlId), appleGetSliderMax(controlId));
+	if(newValue == value)
+	{
+		return false;
+	}
+
+	handleSliderMove((F64)controlId, (F64)newValue);
+	return true;
+}
+#endif

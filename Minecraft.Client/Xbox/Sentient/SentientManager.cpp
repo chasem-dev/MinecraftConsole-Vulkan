@@ -1,15 +1,13 @@
 #include "stdafx.h"
-#include "Include\SenClientCore.h"
-#include "Include\SenClientMain.h"
-#include "Include\SenClientMain.h"
-
-#include "..\GameConfig\Minecraft.spa.h"
-#include "..\..\Minecraft.h"
-#include "..\..\MultiplayerLocalPlayer.h"
-#include "..\..\..\Minecraft.World\Dimension.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.storage.h"
-
+#include "Include/SenClientCore.h"
+#include "Include/SenClientMain.h"
+#include "Include/SenClientMain.h"
+#include "../GameConfig/Minecraft.spa.h"
+#include "../../Minecraft.h"
+#include "../../MultiplayerLocalPlayer.h"
+#include "../../../Minecraft.World/Dimension.h"
+#include "../../../Minecraft.World/net.minecraft.world.level.h"
+#include "../../../Minecraft.World/net.minecraft.world.level.storage.h"
 #include "SentientManager.h"
 #include "MinecraftTelemetry.h"
 #include "DynamicConfigurations.h"
@@ -517,7 +515,7 @@ INT CSentientManager::GetAudioSettings(DWORD dwUserId)
 /*
 Refers to the highest level performance metric for your game.
 For example, a performance metric could points earned, race time, total kills, etc.
-This is entirely up to you and will help us understand how well the player performed, or how far the player progressed  in the level before exiting.
+This is entirely up to you and will help us understand how well the player performed, or how far the player progressed Â in the level before exiting.
 How far did users progress before failing/exiting the level?
 */
 INT CSentientManager::GetLevelExitProgressStat1()
@@ -529,7 +527,7 @@ INT CSentientManager::GetLevelExitProgressStat1()
 /*
 Refers to the highest level performance metric for your game.
 For example, a performance metric could points earned, race time, total kills, etc.
-This is entirely up to you and will help us understand how well the player performed, or how far the player progressed  in the level before exiting.
+This is entirely up to you and will help us understand how well the player performed, or how far the player progressed Â in the level before exiting.
 How far did users progress before failing/exiting the level?
 */
 INT CSentientManager::GetLevelExitProgressStat2()

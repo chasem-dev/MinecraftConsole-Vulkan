@@ -36,6 +36,11 @@ private:
 
 	bool m_bNotInGame;
 	bool m_bMashUpWorldsUnhideOption;
+#if defined(__APPLE__)
+	int m_appleSelectedIndex;
+	int m_appleAutosaveValue;
+	int m_appleDifficultyValue;
+#endif
 public:
 	UIScene_SettingsOptionsMenu(int iPad, void *initData, UILayer *parentLayer);
 	virtual ~UIScene_SettingsOptionsMenu();
@@ -54,4 +59,20 @@ public:
 	virtual void handleInput(int iPad, int key, bool repeat, bool pressed, bool released, bool &handled);
 
 	virtual void handleSliderMove(F64 sliderId, F64 currentValue);
+
+#if defined(__APPLE__)
+	int appleGetSelectedIndex();
+	void appleSetSelectedIndex(int index);
+	int appleGetVisibleRowCount();
+	int appleGetControlIdForVisibleRow(int index);
+	const wchar_t *appleGetLabelForVisibleRow(int index);
+	bool appleIsCheckboxControl(int controlId);
+	bool appleIsSliderControl(int controlId);
+	bool appleGetCheckboxValue(int controlId);
+	int appleGetSliderValue(int controlId);
+	int appleGetSliderMin(int controlId);
+	int appleGetSliderMax(int controlId);
+	void appleActivateControl(int controlId);
+	bool appleAdjustControl(int controlId, int delta);
+#endif
 };

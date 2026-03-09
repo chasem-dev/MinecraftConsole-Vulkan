@@ -1,8 +1,7 @@
 #include "stdafx.h"
 #include "ArrowRenderer.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.projectile.h"
-#include "..\Minecraft.World\Mth.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.projectile.h"
+#include "../Minecraft.World/Mth.h"
 void ArrowRenderer::render(shared_ptr<Entity> _arrow, double x, double y, double z, float rot, float a)
 {
 	// 4J - original version used generics and thus had an input parameter of type Arrow rather than shared_ptr<Entity>  we have here - 

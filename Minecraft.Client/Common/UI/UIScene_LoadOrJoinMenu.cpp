@@ -2,21 +2,21 @@
 #include "UI.h"
 #include "UIScene_LoadOrJoinMenu.h"
 
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.item.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.chunk.storage.h"
-#include "..\..\..\Minecraft.World\ConsoleSaveFile.h"
-#include "..\..\..\Minecraft.World\ConsoleSaveFileOriginal.h"
-#include "..\..\..\Minecraft.World\ConsoleSaveFileSplit.h"
-#include "..\..\ProgressRenderer.h"
-#include "..\..\MinecraftServer.h"
-#include "..\..\TexturePackRepository.h"
-#include "..\..\TexturePack.h"
-#include "..\Network\SessionInfo.h"
+#include "../../../Minecraft.World/StringHelpers.h"
+#include "../../../Minecraft.World/net.minecraft.world.item.h"
+#include "../../../Minecraft.World/net.minecraft.world.level.h"
+#include "../../../Minecraft.World/net.minecraft.world.level.chunk.storage.h"
+#include "../../../Minecraft.World/ConsoleSaveFile.h"
+#include "../../../Minecraft.World/ConsoleSaveFileOriginal.h"
+#include "../../../Minecraft.World/ConsoleSaveFileSplit.h"
+#include "../../ProgressRenderer.h"
+#include "../../MinecraftServer.h"
+#include "../../TexturePackRepository.h"
+#include "../../TexturePack.h"
+#include "../Network/SessionInfo.h"
 #if defined(__PS3__) || defined(__ORBIS__) || defined(__PSVITA__)
-#include "Common\Network\Sony\SonyHttp.h"
-#include "Common\Network\Sony\SonyRemoteStorage.h"
+#include "Common/Network/Sony/SonyHttp.h"
+#include "Common/Network/Sony/SonyRemoteStorage.h"
 #endif
 #if defined(__ORBIS__) || defined(__PSVITA__)
 #include <ces.h>
@@ -173,6 +173,12 @@ UIScene_LoadOrJoinMenu::UIScene_LoadOrJoinMenu(int iPad, void *initData, UILayer
     {
         Initialise();
     }
+#ifdef __APPLE__
+    // On Apple, skip async save loading — just show Create New World
+    m_bSavesDisplayed = true;
+    m_bIgnoreInput = false;
+    if (m_buttonListSaves.getItemCount() == 0) AddDefaultButtons();
+#endif
 
 #ifdef __PSVITA__
     if(CGameNetworkManager::usingAdhocMode() && SQRNetworkManager_AdHoc_Vita::GetAdhocStatus())
@@ -1154,7 +1160,14 @@ void UIScene_LoadOrJoinMenu::handleInput(int iPad, int key, bool repeat, bool pr
     case ACTION_MENU_DOWN:
     case ACTION_MENU_PAGEUP:
     case ACTION_MENU_PAGEDOWN:
+#if defined(__APPLE__)
+        if (pressed && key == ACTION_MENU_OK)
+        {
+            handlePress((F64)eControl_SavesList, (F64)JOIN_LOAD_CREATE_BUTTON_INDEX);
+        }
+#else
         sendInputToMovie(key, repeat, pressed, released);
+#endif
         handled = true;
         break;
     }

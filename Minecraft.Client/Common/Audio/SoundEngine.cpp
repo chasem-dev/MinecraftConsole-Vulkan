@@ -1,22 +1,21 @@
 ﻿#include "stdafx.h"
 
 #include "SoundEngine.h"
-#include "..\Consoles_App.h"
-#include "..\..\MultiplayerLocalPlayer.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\..\Minecraft.World\leveldata.h"
-#include "..\..\Minecraft.World\mth.h"
-#include "..\..\TexturePackRepository.h"
-#include "..\..\DLCTexturePack.h"
-#include "Common\DLC\DLCAudioFile.h"
-
+#include "../Consoles_App.h"
+#include "../../MultiplayerLocalPlayer.h"
+#include "../../../Minecraft.World/net.minecraft.world.level.h"
+#include "../../Minecraft.World/leveldata.h"
+#include "../../Minecraft.World/mth.h"
+#include "../../TexturePackRepository.h"
+#include "../../DLCTexturePack.h"
+#include "Common/DLC/DLCAudioFile.h"
 #ifdef __PSVITA__
 #include <audioout.h>
 #endif
 
 #ifdef _WINDOWS64
-#include "..\..\Minecraft.Client\Windows64\Windows64_App.h"
-#include "..\..\Minecraft.Client\Windows64\Miles\include\imssapi.h"
+#include "../../Minecraft.Client/Windows64/Windows64_App.h"
+#include "../../Minecraft.Client/Windows64/Miles/include/imssapi.h"
 #endif
 
 #ifdef __ORBIS__
@@ -55,7 +54,11 @@ void SoundEngine::playMusicTick() {};
 
 #else
 
-#ifdef _WINDOWS64
+#ifdef __APPLE__
+char SoundEngine::m_szSoundPath[]={"Sound/"};
+char SoundEngine::m_szMusicPath[]={"music/"};
+char SoundEngine::m_szRedistName[]={"redist64"};
+#elif defined _WINDOWS64
 char SoundEngine::m_szSoundPath[]={"Durango\\Sound\\"};
 char SoundEngine::m_szMusicPath[]={"music\\"};
 char SoundEngine::m_szRedistName[]={"redist64"};

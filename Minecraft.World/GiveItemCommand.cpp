@@ -2,7 +2,7 @@
 #include "net.minecraft.commands.h"
 #include "net.minecraft.world.item.h"
 #include "net.minecraft.network.packet.h"
-#include "..\Minecraft.Client\ServerPlayer.h"
+#include "../Minecraft.Client/ServerPlayer.h"
 #include "GiveItemCommand.h"
 
 EGameCommand GiveItemCommand::getId()

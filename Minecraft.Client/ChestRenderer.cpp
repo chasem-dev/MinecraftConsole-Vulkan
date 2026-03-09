@@ -3,9 +3,8 @@
 #include "ChestModel.h"
 #include "LargeChestModel.h"
 #include "ModelPart.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.entity.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-
+#include "../Minecraft.World/net.minecraft.world.level.tile.entity.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
 ChestRenderer::ChestRenderer()
 {
 	chestModel = new ChestModel();

@@ -26,6 +26,8 @@ InputStream *FolderTexturePack::getResourceImplementation(const wstring &name) /
 	// Make the content package point to to the UPDATE: drive is needed
 #ifdef _XBOX
 	wDrive=L"GAME:\\DummyTexturePack\\res";
+#elif defined __APPLE__
+	wDrive = L"Common/DummyTexturePack/res";
 #else
 	wDrive = L"Common\\DummyTexturePack\\res";
 #endif
@@ -63,6 +65,8 @@ wstring FolderTexturePack::getPath(bool bTitleUpdateTexture /*= false*/)
 	wstring wDrive;
 #ifdef _XBOX
 		wDrive=L"GAME:\\" + file->getPath() + L"\\";
+#elif defined __APPLE__
+		wDrive=L"Common/" + file->getPath() + L"/";
 #else
 		wDrive=L"Common\\" + file->getPath() + L"\\";
 #endif

@@ -1,11 +1,10 @@
 #include "stdafx.h"
 #include "UI.h"
 #include "UIControl_EnchantmentButton.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.inventory.h"
-#include "..\..\Minecraft.h"
-#include "..\..\MultiplayerLocalPlayer.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-
+#include "../../../Minecraft.World/net.minecraft.world.inventory.h"
+#include "../../Minecraft.h"
+#include "../../MultiplayerLocalPlayer.h"
+#include "../../../Minecraft.World/StringHelpers.h"
 UIControl_EnchantmentButton::UIControl_EnchantmentButton()
 {
 	m_index = 0;

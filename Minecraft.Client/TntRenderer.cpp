@@ -1,9 +1,8 @@
 #include "stdafx.h"
 #include "TntRenderer.h"
 #include "TileRenderer.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.item.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.item.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
 TntRenderer::TntRenderer()
 {
 	tileRenderer = new TileRenderer();

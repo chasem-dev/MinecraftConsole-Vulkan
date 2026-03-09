@@ -5,6 +5,11 @@
 //* Copyright (c) Microsoft Corporation. All Rights Reserved.          *`
 //**********************************************************************`
 #pragma once
+
+#ifdef __APPLE__
+// EtwPlus is a Durango-only Xbox telemetry system; skip entirely on macOS
+#else
+
 #pragma pack(push, 16)
 
 #include "EtwPlus.h"
@@ -1214,3 +1219,5 @@ EventWriteUpsellResponded(__in_opt PCWSTR UserId, __in LPCGUID PlayerSessionId, 
 #endif
 
 #pragma pack(pop)
+
+#endif // __APPLE__

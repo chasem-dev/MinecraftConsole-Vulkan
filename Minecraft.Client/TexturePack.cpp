@@ -53,6 +53,15 @@ wstring TexturePack::getPath(bool bTitleUpdateTexture /*= false*/)
 	{
 		wDrive= wstr + L"Common\\";
 	}
+#elif defined __APPLE__
+	if(bTitleUpdateTexture)
+	{
+		wDrive=L"Common/res/TitleUpdate/";
+	}
+	else
+	{
+		wDrive=L"Common/";
+	}
 #else
 	if(bTitleUpdateTexture)
 	{

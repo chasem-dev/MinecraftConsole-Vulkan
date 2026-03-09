@@ -2,10 +2,9 @@
 #ifdef _WINDOWS64
 
 #include "P2PConnectionManagerWin.h"
-#include "..\..\Common\Network\GameNetworkManager.h"
-#include "..\..\..\Minecraft.World\System.h"
-#include "..\..\..\Minecraft.World\Socket.h"
-
+#include "../../Common/Network/GameNetworkManager.h"
+#include "../../../Minecraft.World/System.h"
+#include "../../../Minecraft.World/Socket.h"
 #pragma comment(lib, "ws2_32.lib")
 
 CP2PConnectionManagerWin::CP2PConnectionManagerWin()
@@ -759,7 +758,7 @@ bool CP2PConnectionManagerWin::ConnectToKnownEndpoint(INetworkPlayer* player, co
 
     EnterCriticalSection(&m_peersLock);
 
-    // Bypass all discovery/punching — store address and mark as connected directly
+    // Bypass all discovery/punching Â— store address and mark as connected directly
     m_peerAddresses[uid] = remoteAddr;
 
     PeerConnection* peer = GetOrCreatePeer(player);

@@ -5,9 +5,8 @@
 #include "Options.h"
 #include "Textures.h"
 #include "Tesselator.h"
-#include "..\Minecraft.World\net.minecraft.world.level.saveddata.h"
-#include "..\Minecraft.World\net.minecraft.world.level.material.h"
-
+#include "../Minecraft.World/net.minecraft.world.level.saveddata.h"
+#include "../Minecraft.World/net.minecraft.world.level.material.h"
 #ifdef __ORBIS__
 short Minimap::LUT[256];	// 4J added
 #else
@@ -52,6 +51,14 @@ Minimap::Minimap(Font *font, Options *options, Textures *textures, bool optimise
 void Minimap::reloadColours()
 {
 	ColourTable *colourTable = Minecraft::GetInstance()->getColourTable();
+	if (colourTable == NULL)
+	{
+		// No colour table available (missing media archive) - fill with defaults
+		for (int i = 0; i < 256; i++)
+			LUT[i] = 0;
+		genLUT = false;
+		return;
+	}
 	// 4J note that this code has been extracted pretty much as it was in Minimap::render, although with some byte order changes
 	for( int i = 0; i < (14 * 4); i++ )	// 14 material colours currently, 4 brightnesses of each
 	{
@@ -254,7 +261,8 @@ void Minimap::render(shared_ptr<Player> player, Textures *textures, shared_ptr<M
 		int posz = floor(player->z);
 		swprintf(playerPosText, 32, L"X: %d, Y: %d, Z: %d", posx, posy, posz);
 		
-		font->draw(playerPosText, x, y, Minecraft::GetInstance()->getColourTable()->getColour(eMinecraftColour_Map_Text));
+		ColourTable *ct = Minecraft::GetInstance()->getColourTable();
+		font->draw(playerPosText, x, y, ct ? ct->getColour(eMinecraftColour_Map_Text) : 0xFFFFFFFF);
 	}
 //#endif
     glPopMatrix();

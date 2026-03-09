@@ -11,11 +11,10 @@
 #include "SparseLightStorage.h"
 #include "BlockReplacements.h"
 #include "LevelChunk.h"
-#include "..\Minecraft.Client\MinecraftServer.h"
-#include "..\Minecraft.Client\ServerLevel.h"
-#include "..\Minecraft.Client\ServerChunkCache.h"
-#include "..\Minecraft.Client\GameRenderer.h"
-
+#include "../Minecraft.Client/MinecraftServer.h"
+#include "../Minecraft.Client/ServerLevel.h"
+#include "../Minecraft.Client/ServerChunkCache.h"
+#include "../Minecraft.Client/GameRenderer.h"
 #ifdef __PS3__
 #include "C4JSpursJob.h"
 #endif //__PS3__
@@ -122,7 +121,7 @@ void LevelChunk::init(Level *level, int x, int z)
 }
 
 // This ctor is used for loading a save into
-LevelChunk::LevelChunk(Level *level, int x, int z) : ENTITY_BLOCKS_LENGTH( Level::maxBuildHeight/16 )
+LevelChunk::LevelChunk(Level *level, int x, int z)
 {
     init(level, x, z);
 	lowerBlocks = new CompressedTileStorage();
@@ -154,7 +153,7 @@ LevelChunk::LevelChunk(Level *level, int x, int z) : ENTITY_BLOCKS_LENGTH( Level
 
 // 4J - note that since we now compress the block storage, the parameter blocks is used as a source of data, but doesn't get used As the source data so needs
 // to be deleted after calling this ctor.
-LevelChunk::LevelChunk(Level *level, byteArray blocks, int x, int z) : ENTITY_BLOCKS_LENGTH( Level::maxBuildHeight/16 )
+LevelChunk::LevelChunk(Level *level, byteArray blocks, int x, int z)
 {
 	init(level, x, z);
 
@@ -207,7 +206,7 @@ LevelChunk::LevelChunk(Level *level, byteArray blocks, int x, int z) : ENTITY_BL
 
 // 4J - this ctor added to be able to make a levelchunk that shares its underlying block data between the server chunk cache & the multiplayer chunk cache.
 // The original version this is shared from owns all the data that is shared into this copy, so it isn't deleted in the dtor.
-LevelChunk::LevelChunk(Level *level, int x, int z, LevelChunk *lc) : ENTITY_BLOCKS_LENGTH( Level::maxBuildHeight/16 )
+LevelChunk::LevelChunk(Level *level, int x, int z, LevelChunk *lc)
 {
     init(level, x, z);
 
@@ -2460,4 +2459,12 @@ void LevelChunk::reorderBlocksAndDataToXZY(int y0, int xs, int ys, int zs, byteA
 	//	delete buffer.data;
 	//	buffer.data = newBuffer.data;
 	//}
+}
+
+// Legacy stub for old ZonedChunkStorage format - replaces deprecated block IDs
+void LevelChunk::fixBlocks()
+{
+	// In the original Minecraft codebase, fixBlocks() replaced old block IDs
+	// with their updated equivalents (e.g., locked chest -> air).
+	// This is a no-op stub since the zone file format is no longer actively used.
 }

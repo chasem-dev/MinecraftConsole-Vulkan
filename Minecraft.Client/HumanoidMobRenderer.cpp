@@ -4,12 +4,11 @@
 #include "HumanoidModel.h"
 #include "ModelPart.h"
 #include "EntityRenderDispatcher.h"
-#include "..\Minecraft.World\net.minecraft.world.item.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.monster.h"
-#include "..\Minecraft.World\net.minecraft.h"
-
+#include "../Minecraft.World/net.minecraft.world.item.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
+#include "../Minecraft.World/net.minecraft.world.entity.h"
+#include "../Minecraft.World/net.minecraft.world.entity.monster.h"
+#include "../Minecraft.World/net.minecraft.h"
 void HumanoidMobRenderer::_init(HumanoidModel *humanoidModel, float scale)
 {
 	this->humanoidModel = humanoidModel;

@@ -1,7 +1,37 @@
 #include "stdafx.h"
 #include "UI.h"
 #include "UIScene_HelpAndOptionsMenu.h"
-#include "..\..\Minecraft.h"
+#include "../../Minecraft.h"
+
+#if defined(__APPLE__)
+namespace
+{
+bool AppleShouldShowHelpAndOptionsButton(int controlId, int iPad)
+{
+	switch(controlId)
+	{
+	case BUTTON_HAO_CHANGESKIN:
+		return ProfileManager.IsFullVersion();
+	case BUTTON_HAO_HOWTOPLAY:
+	case BUTTON_HAO_CONTROLS:
+	case BUTTON_HAO_SETTINGS:
+		return true;
+	case BUTTON_HAO_CREDITS:
+		return app.GetLocalPlayerCount() <= 1;
+	case BUTTON_HAO_REINSTALL:
+		return false;
+	case BUTTON_HAO_DEBUG:
+#ifdef _FINAL_BUILD
+		return false;
+#else
+		return app.DebugSettingsOn();
+#endif
+	default:
+		return false;
+	}
+}
+}
+#endif
 
 UIScene_HelpAndOptionsMenu::UIScene_HelpAndOptionsMenu(int iPad, void *initData, UILayer *parentLayer) : UIScene(iPad, parentLayer)
 {
@@ -74,6 +104,11 @@ UIScene_HelpAndOptionsMenu::UIScene_HelpAndOptionsMenu(int iPad, void *initData,
 	{
 		removeControl( &m_buttons[BUTTON_HAO_CHANGESKIN], false);
 	}
+
+#if defined(__APPLE__)
+	m_appleSelectedIndex = 0;
+	appleSetSelectedIndex(0);
+#endif
 
 	//StorageManager.TMSPP_GetUserQuotaInfo(C4JStorage::eGlobalStorage_TitleUser,iPad);
 	//StorageManager.WebServiceRequestGetFriends(iPad);
@@ -171,6 +206,10 @@ void UIScene_HelpAndOptionsMenu::handleReload()
 	}
 
 	doHorizontalResizeCheck();
+
+#if defined(__APPLE__)
+	appleSetSelectedIndex(m_appleSelectedIndex);
+#endif
 }
 
 void UIScene_HelpAndOptionsMenu::handleInput(int iPad, int key, bool repeat, bool pressed, bool released, bool &handled)
@@ -191,6 +230,20 @@ void UIScene_HelpAndOptionsMenu::handleInput(int iPad, int key, bool repeat, boo
 #ifdef __ORBIS__
 	case ACTION_MENU_TOUCHPAD_PRESS:
 #endif
+#if defined(__APPLE__)
+		if(pressed)
+		{
+			extern int AppleMouse_GetHoveredControlId();
+			extern bool AppleMouse_IsOverButton();
+			int controlId = AppleMouse_IsOverButton() ? AppleMouse_GetHoveredControlId() : appleGetControlIdForVisibleButton(appleGetSelectedIndex());
+			if(controlId >= 0)
+			{
+				ui.PlayUISFX(eSFX_Press);
+				handlePress((F64)controlId, 0);
+			}
+		}
+		break;
+#else
 	//CD - Added for audio
 	if(pressed)
 	{
@@ -201,6 +254,23 @@ void UIScene_HelpAndOptionsMenu::handleInput(int iPad, int key, bool repeat, boo
 	case ACTION_MENU_DOWN:
 		sendInputToMovie(key, repeat, pressed, released);
 		break;
+#endif
+#if defined(__APPLE__)
+	case ACTION_MENU_UP:
+		if(pressed && !repeat)
+		{
+			appleSetSelectedIndex(appleGetSelectedIndex() - 1);
+			ui.PlayUISFX(eSFX_Press);
+		}
+		break;
+	case ACTION_MENU_DOWN:
+		if(pressed && !repeat)
+		{
+			appleSetSelectedIndex(appleGetSelectedIndex() + 1);
+			ui.PlayUISFX(eSFX_Press);
+		}
+		break;
+#endif
 	}
 }
 
@@ -231,3 +301,83 @@ void UIScene_HelpAndOptionsMenu::handlePress(F64 controlId, F64 childId)
 		break;
 	}
 }
+
+#if defined(__APPLE__)
+int UIScene_HelpAndOptionsMenu::appleGetSelectedIndex()
+{
+	int count = appleGetVisibleButtonCount();
+	if(count <= 0)
+	{
+		return 0;
+	}
+	if(m_appleSelectedIndex < 0)
+	{
+		return 0;
+	}
+	if(m_appleSelectedIndex >= count)
+	{
+		return count - 1;
+	}
+	return m_appleSelectedIndex;
+}
+
+void UIScene_HelpAndOptionsMenu::appleSetSelectedIndex(int index)
+{
+	int count = appleGetVisibleButtonCount();
+	if(count <= 0)
+	{
+		m_appleSelectedIndex = 0;
+		return;
+	}
+	if(index < 0)
+	{
+		index = 0;
+	}
+	if(index >= count)
+	{
+		index = count - 1;
+	}
+	m_appleSelectedIndex = index;
+}
+
+int UIScene_HelpAndOptionsMenu::appleGetVisibleButtonCount()
+{
+	int count = 0;
+	for(int controlId = 0; controlId < BUTTONS_HAO_MAX; ++controlId)
+	{
+		if(AppleShouldShowHelpAndOptionsButton(controlId, m_iPad))
+		{
+			++count;
+		}
+	}
+	return count;
+}
+
+int UIScene_HelpAndOptionsMenu::appleGetControlIdForVisibleButton(int index)
+{
+	int visibleIndex = 0;
+	for(int controlId = 0; controlId < BUTTONS_HAO_MAX; ++controlId)
+	{
+		if(!AppleShouldShowHelpAndOptionsButton(controlId, m_iPad))
+		{
+			continue;
+		}
+		if(visibleIndex == index)
+		{
+			return controlId;
+		}
+		++visibleIndex;
+	}
+	return -1;
+}
+
+const wchar_t *UIScene_HelpAndOptionsMenu::appleGetLabelForVisibleButton(int index)
+{
+	int controlId = appleGetControlIdForVisibleButton(index);
+	if(controlId < 0 || controlId >= BUTTONS_HAO_MAX)
+	{
+		return L"";
+	}
+	return m_buttons[controlId].getLabel();
+}
+#endif

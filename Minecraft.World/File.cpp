@@ -10,7 +10,11 @@
 #include <fios2.h>
 #endif
 
+#if defined __APPLE__
+const wchar_t File::pathSeparator = L'/';
+#else
 const wchar_t File::pathSeparator = L'\\';
+#endif
 #ifdef _XBOX
 const wstring File::pathRoot = L"GAME:"; // Path root after pathSeparator has been removed
 #else

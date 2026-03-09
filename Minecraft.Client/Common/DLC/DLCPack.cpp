@@ -9,8 +9,7 @@
 #include "DLCGameRulesHeader.h"
 #include "DLCAudioFile.h"
 #include "DLCColourTableFile.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-
+#include "../../../Minecraft.World/StringHelpers.h"
 DLCPack::DLCPack(const wstring &name,DWORD dwLicenseMask)
 {
 	m_dataPath = L"";

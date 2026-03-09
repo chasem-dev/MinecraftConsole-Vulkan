@@ -1,13 +1,12 @@
 #include "stdafx.h"
 #include <string>
 #include <unordered_map>
-#include "..\..\Minecraft.h"
-#include "..\..\MultiplayerLocalPlayer.h"
+#include "../../Minecraft.h"
+#include "../../MultiplayerLocalPlayer.h"
 #include "Tutorial.h"
 #include "TutorialConstraints.h"
 #include "InfoTask.h"
-#include "..\..\..\Minecraft.World\Material.h"
-
+#include "../../../Minecraft.World/Material.h"
 InfoTask::InfoTask(Tutorial *tutorial, int descriptionId, int promptId /*= -1*/, bool requiresUserInput /*= false*/,
 	int iMapping /*= 0*/, ETelemetryChallenges telemetryEvent /*= eTelemetryTutorial_NoEvent*/)
 	: TutorialTask( tutorial, descriptionId, false, NULL, true, false, false )

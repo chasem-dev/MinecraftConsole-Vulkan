@@ -1,9 +1,8 @@
 #include "stdafx.h"
 #include "EndermanRenderer.h"
 #include "EndermanModel.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.monster.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.monster.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
 EndermanRenderer::EndermanRenderer() : MobRenderer(new EndermanModel(), 0.5f)
 {
 	model = (EndermanModel *) MobRenderer::model;

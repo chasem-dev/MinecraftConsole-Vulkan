@@ -5,12 +5,11 @@
 #include "Tesselator.h"
 #include "TerrainParticle.h"
 #include "Camera.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.player.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-#include "..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\Minecraft.World\StringHelpers.h"
-#include "..\Minecraft.World\net.minecraft.world.level.dimension.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.player.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
+#include "../Minecraft.World/net.minecraft.world.level.h"
+#include "../Minecraft.World/StringHelpers.h"
+#include "../Minecraft.World/net.minecraft.world.level.dimension.h"
 ParticleEngine::ParticleEngine(Level *level, Textures *textures)
 {
 //    if (level != NULL)	// 4J - removed - we want level to be initialised to *something*

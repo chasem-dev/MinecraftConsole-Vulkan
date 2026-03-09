@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "SilverfishRenderer.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.monster.h"
+#include "../Minecraft.World/net.minecraft.world.entity.monster.h"
 #include "SilverfishModel.h"
 
 SilverfishRenderer::SilverfishRenderer() : MobRenderer(new SilverfishModel(), 0.3f)

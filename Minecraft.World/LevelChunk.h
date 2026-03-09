@@ -28,7 +28,8 @@ public:
 	byteArray biomes; // 4J Stu - Made public
 
 	// 4J Stu - No longer static in 1.8.2
-	const int ENTITY_BLOCKS_LENGTH;
+	// Made static const for macOS port compatibility (value is always Level::maxBuildHeight/16)
+	static const int ENTITY_BLOCKS_LENGTH = 256 / 16;
 	static const int BLOCKS_LENGTH = Level::CHUNK_TILE_COUNT;	// 4J added
 
     static bool touchedSky;
@@ -41,7 +42,13 @@ public:
 		eColumnFlag_biomeHasRain = 8,
 	};
 
-//    byteArray blocks;
+	// Legacy compatibility members for ZonedChunkStorage (old save format)
+	byteArray blocks;
+	DataLayer *data;
+	DataLayer *skyLight;
+	DataLayer *blockLight;
+	void fixBlocks(); // Legacy method for old chunk format
+
 	// 4J - actual storage for blocks is now private with public methods to access it
 private:
 	CompressedTileStorage *lowerBlocks; // 0 - 127
@@ -65,7 +72,6 @@ public:
 	void setDataData(byteArray data);		// Set data to that passed in in the input array of size 32768
 	void getDataData(byteArray data);		// Sets data in passed in array of size 16384, from the data in this chunk
 
-//    DataLayer *data;
 private:
 	// 4J - actual storage for sky & block lights is now private with new methods to be able to access it.
 

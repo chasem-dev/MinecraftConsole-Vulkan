@@ -9,7 +9,7 @@
 #include "net.minecraft.world.entity.item.h"
 #include "net.minecraft.world.damagesource.h"
 #include "PigZombie.h"
-#include "..\Minecraft.Client\Textures.h"
+#include "../Minecraft.Client/Textures.h"
 #include "SoundTypes.h"
 
 

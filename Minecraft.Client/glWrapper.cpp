@@ -1,8 +1,7 @@
 #include "stdafx.h"
-#include "..\Minecraft.World\FloatBuffer.h"
-#include "..\Minecraft.World\IntBuffer.h"
-#include "..\Minecraft.World\ByteBuffer.h"
-
+#include "../Minecraft.World/FloatBuffer.h"
+#include "../Minecraft.World/IntBuffer.h"
+#include "../Minecraft.World/ByteBuffer.h"
 void glViewport(int x, int y, int w, int h)
 {
 	// We don't really need anything here because minecraft doesn't current do anything other than the default viewport
@@ -15,7 +14,7 @@ void glTranslatef(float x,float y,float z)
 
 void glRotatef(float angle, float x, float y, float z)
 {
-	RenderManager.MatrixRotate(angle*(PI/180.0f),x,y,z);
+	RenderManager.MatrixRotate(angle,x,y,z);  // MatrixRotate expects degrees
 }
 
 void glPopMatrix()

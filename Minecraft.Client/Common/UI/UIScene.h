@@ -8,7 +8,12 @@ using namespace std;
 #include "UIControl_Base.h"
 
 class ItemRenderer;
+#if defined(__PSVITA__) || defined(__APPLE__)
+#include "UILayer.h"
+#include "UIGroup.h"
+#else
 class UILayer;
+#endif
 
 // 4J Stu - Setup some defines for quickly mapping elements in the scene
 
@@ -106,11 +111,11 @@ public:
 	int getRenderWidth() { return m_renderWidth; }
 	int getRenderHeight() { return m_renderHeight; }
 
-#ifdef __PSVITA__
+#if defined(__PSVITA__) || defined(__APPLE__)
 	UILayer *GetParentLayer() {return m_parentLayer;}
 	EUIGroup GetParentLayerGroup() {return m_parentLayer->m_parentGroup->GetGroup();}
 #endif
-#if defined(__PSVITA__) || defined(_WINDOWS64)
+#if defined(__PSVITA__) || defined(_WINDOWS64) || defined(__APPLE__)
 	vector<UIControl *> *GetControls() {return &m_controls;}
 #endif
 

@@ -1,9 +1,8 @@
 #include "stdafx.h"
 #include "BoatRenderer.h"
 #include "BoatModel.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.item.h"
-#include "..\Minecraft.World\Mth.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.item.h"
+#include "../Minecraft.World/Mth.h"
 BoatRenderer::BoatRenderer()  : EntityRenderer()
 {
     this->shadowRadius = 0.5f;

@@ -8,8 +8,7 @@
 
 #include <unordered_map>
 
-#include "..\..\Common\Network\Sony\SQRNetworkManager.h"
-
+#include "../../Common/Network/Sony/SQRNetworkManager.h"
 class SQRNetworkPlayer;
 class ISQRNetworkManagerListener;
 class SonyVoiceChat_Vita;

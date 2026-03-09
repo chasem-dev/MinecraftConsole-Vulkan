@@ -1,8 +1,7 @@
 #include "stdafx.h"
 #include "net.minecraft.world.level.h"
 #include "Giant.h"
-#include "..\Minecraft.Client\Textures.h"
-
+#include "../Minecraft.Client/Textures.h"
 
 
 Giant::Giant(Level *level) : Monster( level )

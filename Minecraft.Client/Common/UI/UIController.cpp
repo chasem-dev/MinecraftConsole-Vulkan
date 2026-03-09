@@ -2,18 +2,18 @@
 #include "UIController.h"
 #include "UI.h"
 #include "UIScene.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-#include "..\..\LocalPlayer.h"
-#include "..\..\DLCTexturePack.h"
-#include "..\..\TexturePackRepository.h"
-#include "..\..\Minecraft.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.entity.boss.enderdragon.h"
+#include "../../../Minecraft.World/StringHelpers.h"
+#include "../../LocalPlayer.h"
+#include "../../DLCTexturePack.h"
+#include "../../TexturePackRepository.h"
+#include "../../Minecraft.h"
+#include "../../../Minecraft.World/net.minecraft.world.entity.boss.enderdragon.h"
 #ifdef _WINDOWS64
-#include "..\..\KeyboardMouseInput.h"
+#include "../../KeyboardMouseInput.h"
 #include "UIControl_Slider.h"
 #endif
-#include "..\..\EnderDragonRenderer.h"
-#include "..\..\MultiPlayerLocalPlayer.h"
+#include "../../EnderDragonRenderer.h"
+#include "../../MultiPlayerLocalPlayer.h"
 #include "UIFontData.h"
 #ifdef __PSVITA__
 #include <message_dialog.h>
@@ -25,7 +25,7 @@
 
 //#define ENABLE_IGGY_EXPLORER
 #ifdef ENABLE_IGGY_EXPLORER
-#include "Windows64\Iggy\include\iggyexpruntime.h"
+#include "Windows64/Iggy/include/iggyexpruntime.h"
 #endif
 
 //#define ENABLE_IGGY_PERFMON
@@ -35,18 +35,18 @@
 #define PM_ORIGIN_Y 34
 
 #ifdef __ORBIS__
-#include "Orbis\Iggy\include\iggyperfmon.h"
-#include "Orbis\Iggy\include\iggyperfmon_orbis.h"
+#include "Orbis/Iggy/include/iggyperfmon.h"
+#include "Orbis/Iggy/include/iggyperfmon_orbis.h"
 #elif defined _DURANGO
-#include "Durango\Iggy\include\iggyperfmon.h"
+#include "Durango/Iggy/include/iggyperfmon.h"
 #elif defined __PS3__
-#include "PS3\Iggy\include\iggyperfmon.h"
-#include "PS3\Iggy\include\iggyperfmon_ps3.h"
+#include "PS3/Iggy/include/iggyperfmon.h"
+#include "PS3/Iggy/include/iggyperfmon_ps3.h"
 #elif defined __PSVITA__
-#include "PSVita\Iggy\include\iggyperfmon.h"
-#include "PSVita\Iggy\include\iggyperfmon_psp2.h"
+#include "PSVita/Iggy/include/iggyperfmon.h"
+#include "PSVita/Iggy/include/iggyperfmon_psp2.h"
 #elif defined __WINDOWS64
-#include "Windows64\Iggy\include\iggyperfmon.h"
+#include "Windows64/Iggy/include/iggyperfmon.h"
 #endif
 
 #endif
@@ -304,7 +304,15 @@ void UIController::postInit()
 	IggyInstallPerfmon(iggy_perfmon);
 #endif
 
+#if defined(__APPLE__)
+	// The Apple port uses a minimal Iggy compatibility layer that does not drive
+	// timeline-complete events, so the intro movie never advances on its own.
+	// Navigate to SaveMessage first (same as console/Windows), which then
+	// transitions to MainMenu.
+	NavigateToScene(0, eUIScene_SaveMessage);
+#else
 	NavigateToScene(0, eUIScene_Intro);
+#endif
 }
 
 void UIController::SetupFont()
@@ -1065,6 +1073,55 @@ void UIController::handleKeyPress(unsigned int iPad, unsigned int key)
 	}
 #endif
 
+#if defined(__APPLE__)
+	if (iPad == 0)
+	{
+		// GLFW key constants (from glfw3.h)
+		enum { GK_ENTER = 257, GK_ESCAPE = 256, GK_UP = 265, GK_DOWN = 264,
+		       GK_LEFT = 263, GK_RIGHT = 262, GK_TAB = 258,
+		       GK_R = 82, GK_Q = 81, GK_E = 69,
+		       GK_PAGE_UP = 266, GK_PAGE_DOWN = 267 };
+		extern bool AppleKeyboard_IsDown(int glfwKey);
+		extern bool AppleKeyboard_IsPressed(int glfwKey);
+		extern bool AppleKeyboard_IsReleased(int glfwKey);
+
+		int gk = 0;
+		switch (key)
+		{
+		case ACTION_MENU_OK:    case ACTION_MENU_A: gk = GK_ENTER;     break;
+		case ACTION_MENU_CANCEL: case ACTION_MENU_B: gk = GK_ESCAPE;   break;
+		case ACTION_MENU_UP:    gk = GK_UP;       break;
+		case ACTION_MENU_DOWN:  gk = GK_DOWN;     break;
+		case ACTION_MENU_LEFT:  gk = GK_LEFT;     break;
+		case ACTION_MENU_RIGHT: gk = GK_RIGHT;    break;
+		case ACTION_MENU_X:     gk = GK_R;        break;
+		case ACTION_MENU_Y:     gk = GK_TAB;      break;
+		case ACTION_MENU_LEFT_SCROLL:  gk = GK_Q; break;
+		case ACTION_MENU_RIGHT_SCROLL: gk = GK_E; break;
+		case ACTION_MENU_PAGEUP:   gk = GK_PAGE_UP;   break;
+		case ACTION_MENU_PAGEDOWN: gk = GK_PAGE_DOWN;  break;
+		}
+		if (gk != 0)
+		{
+			if (AppleKeyboard_IsPressed(gk))  { pressed = true; down = true; }
+			if (AppleKeyboard_IsReleased(gk)) { released = true; down = false; }
+			if (!pressed && !released && AppleKeyboard_IsDown(gk)) { down = true; }
+		}
+		// Mouse left-click → ACTION_MENU_OK only when cursor is over a UI button
+		if (key == ACTION_MENU_OK || key == ACTION_MENU_A)
+		{
+			extern bool AppleMouse_IsOverButton();
+			if (AppleMouse_IsOverButton())
+			{
+				enum { GK_MOUSE_LEFT = 500 };
+				if (AppleKeyboard_IsPressed(GK_MOUSE_LEFT))  { pressed = true; down = true; }
+				if (AppleKeyboard_IsReleased(GK_MOUSE_LEFT)) { released = true; down = false; }
+				if (!pressed && !released && AppleKeyboard_IsDown(GK_MOUSE_LEFT)) { down = true; }
+			}
+		}
+	}
+#endif
+
 	if(pressed) app.DebugPrintf("Pressed %d\n",key);
 	if(released) app.DebugPrintf("Released %d\n",key);
 	// Repeat handling
@@ -1455,7 +1512,7 @@ void RADLINK UIController::CustomDrawCallback(void *user_callback_data, Iggy *pl
 {
 	UIScene *scene = (UIScene *)IggyPlayerGetUserdata(player);
 
-	if(scene != NULL)
+	if(scene != NULL && region != NULL && region->name != NULL)
 	{
 		scene->customDraw(region);
 	}

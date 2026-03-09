@@ -8,7 +8,7 @@
 #include "net.minecraft.world.entity.h"
 #include "com.mojang.nbt.h"
 #include "Spider.h"
-#include "..\Minecraft.Client\Textures.h"
+#include "../Minecraft.Client/Textures.h"
 #include "SoundTypes.h"
 
 

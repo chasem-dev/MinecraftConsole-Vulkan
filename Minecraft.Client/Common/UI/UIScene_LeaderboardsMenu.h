@@ -1,8 +1,7 @@
 #pragma once
 
 #include "UIScene.h"
-#include "..\Leaderboards\LeaderboardManager.h"
-
+#include "../Leaderboards/LeaderboardManager.h"
 class UIScene_LeaderboardsMenu : public UIScene, public LeaderboardReadListener
 {
 private:

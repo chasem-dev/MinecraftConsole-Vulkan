@@ -1,16 +1,15 @@
 #include "stdafx.h"
 #include "IUIScene_PauseMenu.h"
-#include "..\..\Minecraft.h"
-#include "..\..\MinecraftServer.h"
-#include "..\..\MultiPlayerLevel.h"
-#include "..\..\ProgressRenderer.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.phys.h"
-#include "..\..\TexturePackRepository.h"
-#include "..\..\TexturePack.h"
-#include "..\..\DLCTexturePack.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-
+#include "../../Minecraft.h"
+#include "../../MinecraftServer.h"
+#include "../../MultiPlayerLevel.h"
+#include "../../ProgressRenderer.h"
+#include "../../../Minecraft.World/net.minecraft.world.level.h"
+#include "../../../Minecraft.World/net.minecraft.world.phys.h"
+#include "../../TexturePackRepository.h"
+#include "../../TexturePack.h"
+#include "../../DLCTexturePack.h"
+#include "../../../Minecraft.World/StringHelpers.h"
 
 int IUIScene_PauseMenu::ExitGameDialogReturned(void *pParam,int iPad,C4JStorage::EMessageResult result)
 {

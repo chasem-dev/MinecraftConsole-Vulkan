@@ -1,14 +1,13 @@
 #include "stdafx.h"
 #include "IUIScene_CreativeMenu.h"
 
-#include "..\..\Minecraft.h"
-#include "..\..\MultiplayerLocalPlayer.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.inventory.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.tile.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.tile.entity.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.item.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.item.enchantment.h"
-
+#include "../../Minecraft.h"
+#include "../../MultiplayerLocalPlayer.h"
+#include "../../../Minecraft.World/net.minecraft.world.inventory.h"
+#include "../../../Minecraft.World/net.minecraft.world.level.tile.h"
+#include "../../../Minecraft.World/net.minecraft.world.level.tile.entity.h"
+#include "../../../Minecraft.World/net.minecraft.world.item.h"
+#include "../../../Minecraft.World/net.minecraft.world.item.enchantment.h"
 // 4J JEV - Images for each tab.
 IUIScene_CreativeMenu::TabSpec **IUIScene_CreativeMenu::specs = NULL;
 

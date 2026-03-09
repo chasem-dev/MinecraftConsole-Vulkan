@@ -1,7 +1,6 @@
 #pragma once
 
-#include "../media\xuiscene_NewUpdateMessage.h"
-
+#include "../media/xuiscene_NewUpdateMessage.h"
 class CScene_NewUpdateMessage : public CXuiSceneImpl
 {
 	// Xui Elements

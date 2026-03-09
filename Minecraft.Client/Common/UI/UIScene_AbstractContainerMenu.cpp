@@ -3,13 +3,12 @@
 #include "UIScene_AbstractContainerMenu.h"
 
 #ifdef _WINDOWS64
-#include "..\..\KeyboardMouseInput.h"
+#include "../../KeyboardMouseInput.h"
 #endif
 
-#include "..\..\..\Minecraft.World\net.minecraft.world.inventory.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.item.h"
-#include "..\..\MultiplayerLocalPlayer.h"
-
+#include "../../../Minecraft.World/net.minecraft.world.inventory.h"
+#include "../../../Minecraft.World/net.minecraft.world.item.h"
+#include "../../MultiplayerLocalPlayer.h"
 UIScene_AbstractContainerMenu::UIScene_AbstractContainerMenu(int iPad, UILayer *parentLayer) : UIScene(iPad, parentLayer)
 {
 	m_focusSection = eSectionNone;

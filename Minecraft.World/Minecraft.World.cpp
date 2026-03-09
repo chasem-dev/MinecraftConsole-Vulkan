@@ -32,7 +32,7 @@
 #include "RandomScatteredLargeFeature.h"
 
 #include "Minecraft.World.h"
-#include "..\Minecraft.Client\ServerLevel.h"
+#include "../Minecraft.Client/ServerLevel.h"
 #include "SparseLightStorage.h"
 #include "SparseDataStorage.h"
 #include "McRegionChunkStorage.h"

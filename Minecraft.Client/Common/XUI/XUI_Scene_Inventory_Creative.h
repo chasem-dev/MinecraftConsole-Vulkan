@@ -1,14 +1,12 @@
 #pragma once
 using namespace std;
 
-#include "..\Media\xuiscene_inventory_creative.h"
+#include "../Media/xuiscene_inventory_creative.h"
 #include "XUI_Scene_AbstractContainer.h"
 #include "XUI_CustomMessages.h"
-#include "..\..\..\Minecraft.World\AbstractContainerMenu.h"
-#include "..\..\..\Minecraft.World\SimpleContainer.h"
-
-#include "..\UI\IUIScene_CreativeMenu.h"
-
+#include "../../../Minecraft.World/AbstractContainerMenu.h"
+#include "../../../Minecraft.World/SimpleContainer.h"
+#include "../UI/IUIScene_CreativeMenu.h"
 #include <vector>
 
 //--------------------------------------------------------------------------------------

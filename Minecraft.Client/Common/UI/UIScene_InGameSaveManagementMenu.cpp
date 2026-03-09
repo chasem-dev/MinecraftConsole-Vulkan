@@ -286,6 +286,17 @@ void UIScene_InGameSaveManagementMenu::tick()
 					(wchar_t *)u16Message,               // destination buffer
 					MAX_SAVEFILENAME_LENGTH                // size of destination buffer, in WCHAR's
 					);
+#elif defined(__APPLE__)
+				// Simple UTF8 to UTF16 conversion for macOS
+				{
+					const char* src = m_saveDetails[m_iRequestingThumbnailId].UTF8SaveFilename;
+					int i = 0;
+					while (src[i] && i < MAX_SAVEFILENAME_LENGTH - 1) {
+						u16Message[i] = (uint16_t)(unsigned char)src[i];
+						i++;
+					}
+					u16Message[i] = 0;
+				}
 #else
 #ifdef __PS3
 				size_t srcmax,dstmax;

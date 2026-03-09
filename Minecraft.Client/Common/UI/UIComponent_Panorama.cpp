@@ -3,9 +3,8 @@
 #include "UIComponent_Panorama.h"
 #include "Minecraft.h"
 #include "MultiPlayerLevel.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.dimension.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.storage.h"
-
+#include "../../../Minecraft.World/net.minecraft.world.level.dimension.h"
+#include "../../../Minecraft.World/net.minecraft.world.level.storage.h"
 UIComponent_Panorama::UIComponent_Panorama(int iPad, void *initData, UILayer *parentLayer) : UIScene(iPad, parentLayer)
 {
 	// Setup all the Iggy references we need for this scene
@@ -44,6 +43,13 @@ void UIComponent_Panorama::tick()
 	if(!hasMovie()) return;
 
 	Minecraft *pMinecraft = Minecraft::GetInstance();
+	if(pMinecraft==NULL || !app.GetGameStarted())
+	{
+		setPanorama(true);
+		UIScene::tick();
+		return;
+	}
+
 	EnterCriticalSection(&pMinecraft->m_setLevelCS);
 	if(pMinecraft->level!=NULL)
 	{

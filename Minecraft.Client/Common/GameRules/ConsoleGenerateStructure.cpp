@@ -1,12 +1,11 @@
 #include "stdafx.h"
 #include "ConsoleGenerateStructure.h"
 #include "ConsoleGameRules.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.dimension.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.level.levelgen.structure.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-#include "..\..\..\Minecraft.World\net.minecraft.h"
-
+#include "../../../Minecraft.World/net.minecraft.world.level.h"
+#include "../../../Minecraft.World/net.minecraft.world.level.dimension.h"
+#include "../../../Minecraft.World/net.minecraft.world.level.levelgen.structure.h"
+#include "../../../Minecraft.World/StringHelpers.h"
+#include "../../../Minecraft.World/net.minecraft.h"
 ConsoleGenerateStructure::ConsoleGenerateStructure() : StructurePiece(0)
 {
 	m_x = m_y = m_z = 0;

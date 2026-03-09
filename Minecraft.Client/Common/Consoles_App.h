@@ -5,23 +5,25 @@ using namespace std;
 #include "Audio/Consoles_SoundEngine.h"
 
 #include <xuiapp.h>
-#include "..\Common\Tutorial\TutorialEnum.h"
+#include "../Common/Tutorial/TutorialEnum.h"
 
 #ifdef _XBOX
-#include "..\Common\XUI\XUI_Helper.h"
-#include "..\Common\XUI\XUI_HelpCredits.h"
+#include "../Common/XUI/XUI_Helper.h"
+#include "../Common/XUI/XUI_HelpCredits.h"
 #endif
-#include "UI\UIStructs.h"
+#include "UI/UIStructs.h"
 
-#include "..\..\Minecraft.World\DisconnectPacket.h"
+#include "../../Minecraft.World/DisconnectPacket.h"
+#ifndef __APPLE__
 #include <xsocialpost.h>
+#endif
 
-#include "..\StringTable.h"
-#include "..\Common\DLC\DLCManager.h"
-#include "..\Common\GameRules\ConsoleGameRulesConstants.h"
-#include "..\Common\GameRules\GameRuleManager.h"
-#include "..\SkinBox.h"
-#include "..\ArchiveFile.h"
+#include "../StringTable.h"
+#include "../Common/DLC/DLCManager.h"
+#include "../Common/GameRules/ConsoleGameRulesConstants.h"
+#include "../Common/GameRules/GameRuleManager.h"
+#include "../SkinBox.h"
+#include "../ArchiveFile.h"
 
 typedef struct _JoinFromInviteData
 {
@@ -146,6 +148,7 @@ public:
 	void			SetSpecialTutorialCompletionFlag(int iPad, int index);
 
  	static			LPCWSTR			GetString(int iID);
+	wstring			lookupString(const wstring &id);
 
 	eGameMode		GetGameMode()																										{ return m_eGameMode;}
 	void			SetGameMode(eGameMode eMode)																						{ m_eGameMode=eMode;}

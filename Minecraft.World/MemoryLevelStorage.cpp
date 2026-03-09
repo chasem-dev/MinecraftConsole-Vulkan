@@ -59,5 +59,5 @@ CompoundTag *MemoryLevelStorage::loadPlayerDataTag(const wstring& playerName)
 
 ConsoleSavePath MemoryLevelStorage::getDataFile(const wstring& id) 
 {
-	return ConsoleSaveFile(wstring(L""));
+	return ConsoleSavePath(wstring(L""));
 }

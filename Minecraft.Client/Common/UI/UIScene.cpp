@@ -2,11 +2,10 @@
 #include "UI.h"
 #include "UIScene.h"
 
-#include "..\..\Lighting.h"
-#include "..\..\LocalPlayer.h"
-#include "..\..\ItemRenderer.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.item.h"
-
+#include "../../Lighting.h"
+#include "../../LocalPlayer.h"
+#include "../../ItemRenderer.h"
+#include "../../../Minecraft.World/net.minecraft.world.item.h"
 UIScene::UIScene(int iPad, UILayer *parentLayer)
 {
 	m_parentLayer = parentLayer;
@@ -594,7 +593,7 @@ void UIScene::setVisible(bool visible)
 
 void UIScene::customDraw(IggyCustomDrawCallbackRegion *region)
 {
-	app.DebugPrintf("Handling custom draw for scene with no override!\n");
+	// Base class: silently ignore custom draw regions for scenes that don't override.
 }
 
 void UIScene::customDrawSlotControl(IggyCustomDrawCallbackRegion *region, int iPad, shared_ptr<ItemInstance> item, float fAlpha, bool isFoil, bool bDecorations)

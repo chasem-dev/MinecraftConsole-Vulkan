@@ -15,7 +15,7 @@ wstring MemoryLevelStorageSource::getName()
 
 shared_ptr<LevelStorage> MemoryLevelStorageSource::selectLevel(const wstring&  levelId, bool createPlayerDir) 
 {
-	return shared_ptr<LevelStorage> () new MemoryLevelStorage());
+	return shared_ptr<LevelStorage>(new MemoryLevelStorage());
 }
 
 vector<LevelSummary *> *MemoryLevelStorageSource::getLevelList() 

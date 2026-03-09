@@ -95,13 +95,13 @@ LevelChunk *ZonedChunkStorage::load(Level *level, int x, int z)
     if (zoneIo == NULL) return NULL;
 
     LevelChunk *lc = new LevelChunk(level, x, z);
-    lc->unsaved = false;
+    lc->setUnsaved(false);
 
     ByteBuffer *header = zoneIo->read(CHUNK_HEADER_SIZE);
     lc->blocks = zoneIo->read(CHUNK_SIZE)->array();
-    lc->data = new DataLayer(zoneIo->read(CHUNK_SIZE / 2)->array());
-    lc->skyLight = new DataLayer(zoneIo->read(CHUNK_SIZE / 2)->array());
-    lc->blockLight = new DataLayer(zoneIo->read(CHUNK_SIZE / 2)->array());
+    lc->data = new DataLayer(zoneIo->read(CHUNK_SIZE / 2)->array(), Level::genDepthBits);
+    lc->skyLight = new DataLayer(zoneIo->read(CHUNK_SIZE / 2)->array(), Level::genDepthBits);
+    lc->blockLight = new DataLayer(zoneIo->read(CHUNK_SIZE / 2)->array(), Level::genDepthBits);
     lc->heightmap = zoneIo->read(CHUNK_WIDTH * CHUNK_WIDTH)->array();
 
     header->flip();
@@ -166,7 +166,11 @@ void ZonedChunkStorage::tick()
 			// 4J - removed try/catch
 //            try {
 			char buf[256];
-			sprintf(buf,"Closing zone %I64d\n",key);
+	#ifdef __APPLE__
+		sprintf(buf,"Closing zone %lld\n",(long long)key);
+#else
+		sprintf(buf,"Closing zone %I64d\n",key);
+#endif
 			app.DebugPrintf(buf);
             zoneFiles[key]->close();
 			zoneFiles.erase(zoneFiles.find(key));

@@ -4,9 +4,8 @@
 #include <cell/gcm.h>
 
 // Temp
-#include "..\Minecraft.h"
-#include "..\Textures.h"
-
+#include "../Minecraft.h"
+#include "../Textures.h"
 #define _ENABLEIGGY
 
 ConsoleUIController ui;

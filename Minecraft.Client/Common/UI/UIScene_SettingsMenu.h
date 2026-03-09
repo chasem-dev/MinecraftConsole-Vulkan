@@ -22,6 +22,9 @@ private:
 		UI_MAP_ELEMENT( m_buttons[BUTTON_ALL_UI], "Button5")
 		UI_MAP_ELEMENT( m_buttons[BUTTON_ALL_RESETTODEFAULTS], "Button6")
 	UI_END_MAP_ELEMENTS_AND_NAMES()
+#if defined(__APPLE__)
+	int m_appleSelectedIndex;
+#endif
 public:
 	UIScene_SettingsMenu(int iPad, void *initData, UILayer *parentLayer);
 	virtual ~UIScene_SettingsMenu();
@@ -39,6 +42,14 @@ protected:
 public:
 	// INPUT
 	virtual void handleInput(int iPad, int key, bool repeat, bool pressed, bool released, bool &handled);
+
+#if defined(__APPLE__)
+	int appleGetSelectedIndex();
+	void appleSetSelectedIndex(int index);
+	int appleGetVisibleButtonCount();
+	int appleGetControlIdForVisibleButton(int index);
+	const wchar_t *appleGetLabelForVisibleButton(int index);
+#endif
 
 protected:
 	void handlePress(F64 controlId, F64 childId);

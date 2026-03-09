@@ -9,7 +9,7 @@
 #include "net.minecraft.world.damagesource.h"
 #include "net.minecraft.stats.h"
 #include "Ghast.h"
-#include "..\Minecraft.Client\Textures.h"
+#include "../Minecraft.Client/Textures.h"
 #include "LevelEvent.h"
 #include "SoundTypes.h"
 

@@ -1,26 +1,25 @@
 #include "stdafx.h"
 #include "UI.h"
 #include "UIScene_CreateWorldMenu.h"
-#include "..\..\MinecraftServer.h"
-#include "..\..\Minecraft.h"
-#include "..\..\Options.h"
-#include "..\..\TexturePackRepository.h"
-#include "..\..\TexturePack.h"
-#include "..\..\..\Minecraft.World\LevelSettings.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-#include "..\..\..\Minecraft.World\BiomeSource.h"
-#include "..\..\..\Minecraft.World\IntCache.h"
-#include "..\..\..\Minecraft.World\LevelType.h"
-#include "..\..\DLCTexturePack.h"
-
+#include "../../MinecraftServer.h"
+#include "../../Minecraft.h"
+#include "../../Options.h"
+#include "../../TexturePackRepository.h"
+#include "../../TexturePack.h"
+#include "../../../Minecraft.World/LevelSettings.h"
+#include "../../../Minecraft.World/StringHelpers.h"
+#include "../../../Minecraft.World/BiomeSource.h"
+#include "../../../Minecraft.World/IntCache.h"
+#include "../../../Minecraft.World/LevelType.h"
+#include "../../DLCTexturePack.h"
 #ifdef __PSVITA__
-#include "PSVita\Network\SQRNetworkManager_AdHoc_Vita.h"
+#include "PSVita/Network/SQRNetworkManager_AdHoc_Vita.h"
 #endif
 
 #ifdef  _WINDOWS64
 
 #include <windows.h>
-#include "Xbox\Resource.h"
+#include "Xbox/Resource.h"
 #endif
 
 #define GAME_CREATE_ONLINE_TIMER_ID 0
@@ -384,8 +383,43 @@ void UIScene_CreateWorldMenu::handleInput(int iPad, int key, bool repeat, bool p
 	case ACTION_MENU_RIGHT:
 	case ACTION_MENU_OTHER_STICK_UP:
 	case ACTION_MENU_OTHER_STICK_DOWN:
+#if defined(__APPLE__)
+		if (pressed)
+		{
+			extern int  AppleMouse_GetCreateWorldSelected();
+			extern void AppleMouse_SetCreateWorldSelected(int idx);
+			extern void AppleMouse_SetCreateWorldSurvival(bool val);
+			extern bool AppleMouse_IsOverButton();
+			if (key == ACTION_MENU_OK)
+			{
+				int sel = AppleMouse_GetCreateWorldSelected();
+				if (AppleMouse_IsOverButton())
+				{
+					extern int AppleMouse_GetHoveredControlId();
+					sel = AppleMouse_GetHoveredControlId();
+				}
+				if (sel == 0)
+				{
+					handlePress((F64)eControl_GameModeToggle, 0);
+					AppleMouse_SetCreateWorldSurvival(m_bGameModeSurvival);
+				}
+				else if (sel == 1)
+				{
+					handlePress((F64)eControl_NewWorld, 0);
+				}
+			}
+			else if (key == ACTION_MENU_UP || key == ACTION_MENU_DOWN)
+			{
+				int sel = AppleMouse_GetCreateWorldSelected();
+				if (key == ACTION_MENU_UP   && sel > 0) sel--;
+				if (key == ACTION_MENU_DOWN && sel < 1) sel++;
+				AppleMouse_SetCreateWorldSelected(sel);
+				ui.PlayUISFX(eSFX_Press);
+			}
+		}
+#else
 		sendInputToMovie(key, repeat, pressed, released);
-		
+
 #if defined _XBOX_ONE || defined __ORBIS__ || defined _WINDOWS64
 		if(getSceneResolution() == eSceneResolution_1080)
 		{
@@ -402,6 +436,7 @@ void UIScene_CreateWorldMenu::handleInput(int iPad, int key, bool repeat, bool p
 			}
 		}
 #endif
+#endif // __APPLE__
 
 		handled = true;
 		break;

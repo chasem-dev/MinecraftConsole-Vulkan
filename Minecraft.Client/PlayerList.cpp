@@ -11,23 +11,23 @@
 #include "PendingConnection.h"
 #include "PlayerConnection.h"
 #include "EntityTracker.h"
-#include "..\Minecraft.World\net.minecraft.world.level.storage.h"
-#include "..\Minecraft.World\net.minecraft.world.level.dimension.h"
-#include "..\Minecraft.World\ArrayWithLength.h"
-#include "..\Minecraft.World\net.minecraft.network.packet.h"
-#include "..\Minecraft.World\net.minecraft.network.h"
-#include "..\Minecraft.World\Pos.h"
-#include "..\Minecraft.World\ProgressListener.h"
-#include "..\Minecraft.World\HellRandomLevelSource.h"
-#include "..\Minecraft.World\net.minecraft.world.phys.h"
-#include "..\Minecraft.World\net.minecraft.world.item.h"
-#include "..\Minecraft.World\net.minecraft.world.level.storage.h"
-#include "..\Minecraft.World\net.minecraft.world.level.saveddata.h"
-#include "..\Minecraft.World\JavaMath.h"
+#include "../Minecraft.World/net.minecraft.world.level.storage.h"
+#include "../Minecraft.World/net.minecraft.world.level.dimension.h"
+#include "../Minecraft.World/ArrayWithLength.h"
+#include "../Minecraft.World/net.minecraft.network.packet.h"
+#include "../Minecraft.World/net.minecraft.network.h"
+#include "../Minecraft.World/Pos.h"
+#include "../Minecraft.World/ProgressListener.h"
+#include "../Minecraft.World/HellRandomLevelSource.h"
+#include "../Minecraft.World/net.minecraft.world.phys.h"
+#include "../Minecraft.World/net.minecraft.world.item.h"
+#include "../Minecraft.World/net.minecraft.world.level.storage.h"
+#include "../Minecraft.World/net.minecraft.world.level.saveddata.h"
+#include "../Minecraft.World/JavaMath.h"
 #ifdef _XBOX
-#include "Xbox\Network\NetworkPlayerXbox.h"
+#include "Xbox/Network/NetworkPlayerXbox.h"
 #elif defined(__PS3__) || defined(__ORBIS__)
-#include "Common\Network\Sony\NetworkPlayerSony.h"
+#include "Common/Network/Sony/NetworkPlayerSony.h"
 #endif
 
 // 4J - this class is fairly substantially altered as there didn't seem any point in porting code for banning, whitelisting, ops etc.
@@ -220,7 +220,7 @@ void PlayerList::placeNewPlayer(Connection *connection, shared_ptr<ServerPlayer>
         sendLevelInfo(player, level);
 
         // 4J-PB - removed, since it needs to be localised in the language the client is in
-		//server->players->broadcastAll( shared_ptr<ChatPacket>( new ChatPacket(L"§e" + playerEntity->name + L" joined the game.") ) );
+		//server->players->broadcastAll( shared_ptr<ChatPacket>( new ChatPacket(L"Â§e" + playerEntity->name + L" joined the game.") ) );
 		broadcastAll( shared_ptr<ChatPacket>( new ChatPacket(player->name, ChatPacket::e_ChatPlayerJoinedGame) ) );
 
 		MemSect(14);
@@ -380,7 +380,7 @@ void PlayerList::add(shared_ptr<ServerPlayer> player)
 	// Some code from here has been moved to the above validatePlayerSpawnPosition function
 
 	// 4J Stu - Swapped these lines about so that we get the chunk visiblity packet way ahead of all the add tracked entity packets
-	// Fix for #9169 - ART : Sign text is replaced with the words “Awaiting approval”.
+	// Fix for #9169 - ART : Sign text is replaced with the words Â“Awaiting approvalÂ”.
     changeDimension(player, NULL);
     level->addEntity(player);
 

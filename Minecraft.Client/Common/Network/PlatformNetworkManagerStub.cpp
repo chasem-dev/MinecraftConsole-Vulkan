@@ -1,12 +1,12 @@
 #include "stdafx.h"
-#include "..\..\..\Minecraft.World\Socket.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
+#include "../../../Minecraft.World/Socket.h"
+#include "../../../Minecraft.World/StringHelpers.h"
 #include "PlatformNetworkManagerStub.h"
-#include "..\..\Xbox\Network\NetworkPlayerXbox.h"		// TODO - stub version of this?
-#ifdef _WINDOWS64
-#include "..\..\Windows64\Network\WinsockNetLayer.h"
-#include "..\..\Minecraft.h"
-#include "..\..\User.h"
+#include "../../Xbox/Network/NetworkPlayerXbox.h"		// TODO - stub version of this?
+#if defined(_WINDOWS64) || defined(__APPLE__)
+#include "../../Windows64/Network/WinsockNetLayer.h"
+#include "../../Minecraft.h"
+#include "../../User.h"
 #include "Extrax64Stubs.h"
 #endif
 
@@ -212,7 +212,7 @@ bool CPlatformNetworkManagerStub::isSystemPrimaryPlayer(IQNetPlayer *pQNetPlayer
 // We call this twice a frame, either side of the render call so is a good place to "tick" things
 void CPlatformNetworkManagerStub::DoWork()
 {
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 	extern QNET_STATE _iQNetStubState;
 	if (_iQNetStubState == QNET_STATE_SESSION_STARTING && app.GetGameStarted())
 	{
@@ -293,7 +293,7 @@ int CPlatformNetworkManagerStub::GetLocalPlayerMask(int playerIndex)
 
 bool CPlatformNetworkManagerStub::AddLocalPlayerByUserIndex( int userIndex )
 {
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
     if (userIndex > 0 && m_pIQNet->GetState() == QNET_STATE_GAME_PLAY)
     {
         // Assign splitscreen pads from the TOP of the m_player array downward.
@@ -351,7 +351,7 @@ bool CPlatformNetworkManagerStub::LeaveGame(bool bMigrateHost)
 
 	m_bLeavingGame = true;
 
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 	WinsockNetLayer::StopAdvertising();
 #endif
 
@@ -372,7 +372,7 @@ bool CPlatformNetworkManagerStub::LeaveGame(bool bMigrateHost)
 	m_machineQNetPrimaryPlayers.clear();
 	SystemFlagReset();
 
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 	WinsockNetLayer::Shutdown();
 	WinsockNetLayer::Initialize();
 #endif
@@ -397,7 +397,7 @@ void CPlatformNetworkManagerStub::HostGame(int localUsersMask, bool bOnlineGame,
 
 	m_pIQNet->HostGame();
 
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 	IQNet::m_player[0].m_smallId = 0;
 	IQNet::m_player[0].m_isRemote = false;
 	IQNet::m_player[0].m_isHostPlayer = true;
@@ -406,7 +406,7 @@ void CPlatformNetworkManagerStub::HostGame(int localUsersMask, bool bOnlineGame,
 
 	_HostGame( localUsersMask, publicSlots, privateSlots );
 
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 	int port = WIN64_NET_DEFAULT_PORT;
 	if (!WinsockNetLayer::IsActive())
 		WinsockNetLayer::HostGame(port);
@@ -428,7 +428,7 @@ bool CPlatformNetworkManagerStub::_StartGame()
 
 int CPlatformNetworkManagerStub::JoinGame(FriendSessionInfo *searchResult, int localUsersMask, int primaryUserIndex)
 {
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 	if (searchResult == NULL)
 		return CGameNetworkManager::JOINGAME_FAIL_GENERAL;
 
@@ -511,7 +511,7 @@ void CPlatformNetworkManagerStub::HandleSignInChange()
 
 void CPlatformNetworkManagerStub::SetGamePlayState()
 {
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 	extern QNET_STATE _iQNetStubState;
 	_iQNetStubState = QNET_STATE_GAME_PLAY;
 #endif
@@ -519,7 +519,7 @@ void CPlatformNetworkManagerStub::SetGamePlayState()
 
 bool CPlatformNetworkManagerStub::_RunNetworkGame()
 {
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 	extern QNET_STATE _iQNetStubState;
 	_iQNetStubState = QNET_STATE_GAME_PLAY;
 
@@ -685,7 +685,7 @@ wstring CPlatformNetworkManagerStub::GatherRTTStats()
 
 void CPlatformNetworkManagerStub::TickSearch()
 {
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 	if (m_SessionsUpdatedCallback == NULL)
 		return;
 
@@ -701,7 +701,7 @@ void CPlatformNetworkManagerStub::TickSearch()
 
 void CPlatformNetworkManagerStub::SearchForGames()
 {
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 	std::vector<Win64LANSession> lanSessions = WinsockNetLayer::GetDiscoveredSessions();
 
 	for (size_t i = 0; i < friendsSessions[0].size(); i++)
@@ -729,7 +729,7 @@ void CPlatformNetworkManagerStub::SearchForGames()
 		info->data.playerCount = lanSessions[i].playerCount;
 		info->data.maxPlayers = lanSessions[i].maxPlayers;
 
-		info->sessionId = (SessionID)((unsigned __int64)inet_addr(lanSessions[i].hostIP) | ((unsigned __int64)lanSessions[i].hostPort << 32));
+		info->sessionId = (SessionID)((ULONGLONG)inet_addr(lanSessions[i].hostIP) | ((ULONGLONG)lanSessions[i].hostPort << 32));
 
 		friendsSessions[0].push_back(info);
 	}
@@ -837,7 +837,7 @@ INetworkPlayer * CPlatformNetworkManagerStub::GetPlayerBySmallId(unsigned char s
 		return NULL;
 
 	INetworkPlayer *networkPlayer = getNetworkPlayer(qnetPlayer);
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 	if (networkPlayer == NULL && smallId != 0 && !m_pIQNet->IsHost())
 	{
 		qnetPlayer->m_isRemote = true;

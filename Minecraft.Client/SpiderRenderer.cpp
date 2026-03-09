@@ -1,8 +1,7 @@
 #include "stdafx.h"
 #include "SpiderRenderer.h"
 #include "SpiderModel.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.monster.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.monster.h"
 SpiderRenderer::SpiderRenderer() : MobRenderer(new SpiderModel(), 1.0f)
 {
 	this->setArmor(new SpiderModel());

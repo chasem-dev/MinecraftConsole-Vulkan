@@ -11,14 +11,12 @@
 #include <winhttp.h>
 #pragma comment(lib, "winhttp.lib")
 
-#include "..\Common\Consoles_App.h"
-
+#include "../Common/Consoles_App.h"
 #ifndef STORE_SERVER_PORT
 #define STORE_SERVER_PORT 3000
 #endif
 
-#include "Windows64\4JLibs\inc\4J_Storage.h"
-#pragma comment(linker, "/FORCE:MULTIPLE")
+#include "Windows64/4JLibs/inc/4J_Storage.h"#pragma comment(linker, "/FORCE:MULTIPLE")
 
 
 static bool HttpGetStoreFile(const char* szFilename, BYTE** ppOutData, DWORD* pdwSize)

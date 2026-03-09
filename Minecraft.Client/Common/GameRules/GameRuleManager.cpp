@@ -1,14 +1,14 @@
 #include "stdafx.h"
-#include "..\..\..\Minecraft.World\compression.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-#include "..\..\..\Minecraft.World\File.h"
-#include "..\..\..\Minecraft.World\compression.h"
-#include "..\DLC\DLCPack.h"
-#include "..\DLC\DLCLocalisationFile.h"
-#include "..\DLC\DLCGameRulesFile.h"
-#include "..\DLC\DLCGameRules.h"
-#include "..\DLC\DLCGameRulesHeader.h"
-#include "..\..\StringTable.h"
+#include "../../../Minecraft.World/compression.h"
+#include "../../../Minecraft.World/StringHelpers.h"
+#include "../../../Minecraft.World/File.h"
+#include "../../../Minecraft.World/compression.h"
+#include "../DLC/DLCPack.h"
+#include "../DLC/DLCLocalisationFile.h"
+#include "../DLC/DLCGameRulesFile.h"
+#include "../DLC/DLCGameRules.h"
+#include "../DLC/DLCGameRulesHeader.h"
+#include "../../StringTable.h"
 #include "ConsoleGameRules.h"
 #include "GameRuleManager.h"
 
@@ -640,9 +640,13 @@ void GameRuleManager::loadDefaultGameRules()
 	File packedTutorialFile(fileRoot);
 	if(loadGameRulesPack(&packedTutorialFile))
 	{
-		m_levelGenerators.getLevelGenerators()->at(0)->setWorldName(app.GetString(IDS_PLAY_TUTORIAL));
-		//m_levelGenerators.getLevelGenerators()->at(0)->setDefaultSaveName(L"Tutorial");
-		m_levelGenerators.getLevelGenerators()->at(0)->setDefaultSaveName(app.GetString(IDS_TUTORIALSAVENAME));
+		vector<LevelGenerationOptions *> *levelGenerators = m_levelGenerators.getLevelGenerators();
+		if(!levelGenerators->empty())
+		{
+			levelGenerators->at(0)->setWorldName(app.GetString(IDS_PLAY_TUTORIAL));
+			//levelGenerators->at(0)->setDefaultSaveName(L"Tutorial");
+			levelGenerators->at(0)->setDefaultSaveName(app.GetString(IDS_TUTORIALSAVENAME));
+		}
 	}
 
 #ifndef _CONTENT_PACKAGE
@@ -667,8 +671,12 @@ void GameRuleManager::loadDefaultGameRules()
 		if ( app.m_dlcManager.readDLCDataFile(dwFilesProcessed,fpTutorial,pack,true) )
 		{
 			app.m_dlcManager.addPack(pack);
-			m_levelGenerators.getLevelGenerators()->at(0)->setWorldName(app.GetString(IDS_PLAY_TUTORIAL));
-			m_levelGenerators.getLevelGenerators()->at(0)->setDefaultSaveName(app.GetString(IDS_TUTORIALSAVENAME));
+			vector<LevelGenerationOptions *> *levelGenerators = m_levelGenerators.getLevelGenerators();
+			if(!levelGenerators->empty())
+			{
+				levelGenerators->at(0)->setWorldName(app.GetString(IDS_PLAY_TUTORIAL));
+				levelGenerators->at(0)->setDefaultSaveName(app.GetString(IDS_TUTORIALSAVENAME));
+			}
 		}
 		else delete pack;
 	}

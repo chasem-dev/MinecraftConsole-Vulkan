@@ -1,7 +1,6 @@
 #pragma once
 
-#include "Common\Leaderboards\LeaderboardManager.h"
-
+#include "Common/Leaderboards/LeaderboardManager.h"
 namespace P = Platform;
 namespace PC = Platform::Collections;
 namespace WF = Windows::Foundation;

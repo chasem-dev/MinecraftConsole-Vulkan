@@ -1,10 +1,9 @@
 #include "stdafx.h"
 #include "UI.h"
 #include "UIScene_CapeSelectMenu.h"
-#include "..\..\Minecraft.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-#include "..\..\..\Minecraft.World\Definitions.h"
-
+#include "../../Minecraft.h"
+#include "../../../Minecraft.World/StringHelpers.h"
+#include "../../../Minecraft.World/Definitions.h"
 // Cape names — index 0 = No Cape, 1-52 correspond to dlccape00000001.png ... dlccape00000052.png
 const wchar_t *UIScene_CapeSelectMenu::k_capeNames[UIScene_CapeSelectMenu::k_capeCount] =
 {

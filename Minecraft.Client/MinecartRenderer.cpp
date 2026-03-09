@@ -1,9 +1,8 @@
 #include "stdafx.h"
 #include "MinecartRenderer.h"
 #include "MinecartModel.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.item.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.item.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
 MinecartRenderer::MinecartRenderer()
 {
     this->shadowRadius = 0.5f;

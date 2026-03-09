@@ -1,5 +1,4 @@
 #pragma once
-#include <vectormath\cpp\vectormath_aos.h>
-
+#include <vectormath/cpp/vectormath_aos.h>
 
 

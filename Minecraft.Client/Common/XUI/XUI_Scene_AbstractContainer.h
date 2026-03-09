@@ -1,8 +1,7 @@
 #pragma once
-#include "..\UI\IUIScene_AbstractContainerMenu.h"
+#include "../UI/IUIScene_AbstractContainerMenu.h"
 #include "XUI_CustomMessages.h"
-#include "..\..\Common\Tutorial\TutorialEnum.h"
-
+#include "../../Common/Tutorial/TutorialEnum.h"
 class CXuiCtrlSlotList;
 class CXuiCtrlSlotItem;
 class AbstractContainerMenu;

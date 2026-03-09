@@ -27,7 +27,7 @@ public:
 	bool m_bIgnoreAutosaveMenuDisplayed;
 	bool m_bIgnorePlayerJoinMenuDisplayed;
 
-#ifdef __PSVITA__
+#if defined(__PSVITA__) || defined(__APPLE__)
 	EUILayer m_iLayer;
 #endif
 

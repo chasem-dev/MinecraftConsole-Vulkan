@@ -8,6 +8,11 @@
  *
  * Minimal SOAP implementation for UPnP protocol.
  */
+#ifdef __APPLE__
+#ifndef sprintf_s
+#define sprintf_s snprintf
+#endif
+#endif
 #include <stdio.h>
 #include <string.h>
 #ifdef _WIN32

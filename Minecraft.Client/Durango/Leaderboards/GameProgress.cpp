@@ -1,9 +1,7 @@
 #include "stdafx.h"
 
-#include "Durango\ServiceConfig\Events-XBLA.8-149E11AEEvents.h"
-
-#include "..\Minecraft.World\DurangoStats.h"
-
+#include "Durango/ServiceConfig/Events-XBLA.8-149E11AEEvents.h"
+#include "../Minecraft.World/DurangoStats.h"
 #include "GameProgress.h"
 
 namespace WFC = Windows::Foundation::Collections;

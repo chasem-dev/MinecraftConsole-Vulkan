@@ -3,10 +3,9 @@
 #include "Tesselator.h"
 #include "Lighting.h"
 #include "TileRenderer.h"
-#include "..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\Minecraft.World\PistonPieceEntity.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-
+#include "../Minecraft.World/net.minecraft.world.level.h"
+#include "../Minecraft.World/PistonPieceEntity.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
 PistonPieceRenderer::PistonPieceRenderer()
 {
 	tileRenderer = NULL;

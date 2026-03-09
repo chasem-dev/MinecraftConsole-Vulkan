@@ -1,8 +1,7 @@
 #include "stdafx.h"
 #include "UI.h"
 #include "UIScene_CustomizeCharacterMenu.h"
-#include "..\..\Minecraft.h"
-
+#include "../../Minecraft.h"
 UIScene_CustomizeCharacterMenu::UIScene_CustomizeCharacterMenu(int iPad, void *initData, UILayer *parentLayer) : UIScene(iPad, parentLayer)
 {
 	initialiseMovie();

@@ -20,6 +20,8 @@ UIScene_Intro::UIScene_Intro(int iPad, void *initData, UILayer *parentLayer) : U
 	// 4J Stu - These map to values in the Actionscript
 #ifdef _WINDOWS64
 	int platformIdx = 0;
+#elif defined(__APPLE__)
+	int platformIdx = 0;  // Reuse Windows/PC platform index
 #elif defined(_XBOX)
 	int platformIdx = 1;
 #elif defined(_DURANGO)

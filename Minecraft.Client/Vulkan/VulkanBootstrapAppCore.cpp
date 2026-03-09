@@ -105,6 +105,8 @@ void VulkanBootstrapApp::attachToWindow(GLFWwindow *window)
   createCommandPool();
   createSwapchain();
   createImageViews();
+  createDepthResources();
+  createTextureResources();
   createRenderPass();
   createGraphicsPipeline();
   createFramebuffers();
@@ -140,7 +142,13 @@ void VulkanBootstrapApp::beginFrame()
   frameBatches_.clear();
 }
 
-void VulkanBootstrapApp::submitVertices(VkPrimitiveTopology topology, const Vertex *vertices, size_t count)
+void VulkanBootstrapApp::submitVertices(
+  VkPrimitiveTopology topology,
+  const Vertex *vertices,
+  size_t count,
+  ShaderVariant variant,
+  const float mvp[16],
+  const RenderState &state)
 {
   if (vertices == nullptr || count == 0)
   {
@@ -151,6 +159,12 @@ void VulkanBootstrapApp::submitVertices(VkPrimitiveTopology topology, const Vert
   batch.topology = topology;
   batch.firstVertex = static_cast<uint32_t>(frameVertices_.size());
   batch.vertexCount = static_cast<uint32_t>(count);
+  batch.shaderVariant = variant;
+  batch.renderState = state;
+  if (mvp != nullptr)
+  {
+    std::copy(mvp, mvp + batch.mvp.size(), batch.mvp.begin());
+  }
   frameBatches_.push_back(batch);
   frameVertices_.insert(frameVertices_.end(), vertices, vertices + count);
 }
@@ -158,26 +172,32 @@ void VulkanBootstrapApp::submitVertices(VkPrimitiveTopology topology, const Vert
 void VulkanBootstrapApp::shutdownRenderer()
 {
   cleanupSwapchain();
+  destroyTextureResources();
 
   if (imageAvailableSemaphore_ != VK_NULL_HANDLE)
   {
     vkDestroySemaphore(device_, imageAvailableSemaphore_, nullptr);
+    imageAvailableSemaphore_ = VK_NULL_HANDLE;
   }
   if (renderFinishedSemaphore_ != VK_NULL_HANDLE)
   {
     vkDestroySemaphore(device_, renderFinishedSemaphore_, nullptr);
+    renderFinishedSemaphore_ = VK_NULL_HANDLE;
   }
   if (inFlightFence_ != VK_NULL_HANDLE)
   {
     vkDestroyFence(device_, inFlightFence_, nullptr);
+    inFlightFence_ = VK_NULL_HANDLE;
   }
   if (commandPool_ != VK_NULL_HANDLE)
   {
     vkDestroyCommandPool(device_, commandPool_, nullptr);
+    commandPool_ = VK_NULL_HANDLE;
   }
   if (vertexBuffer_ != VK_NULL_HANDLE)
   {
     vkDestroyBuffer(device_, vertexBuffer_, nullptr);
+    vertexBuffer_ = VK_NULL_HANDLE;
   }
   if (vertexBufferMapped_ != nullptr)
   {
@@ -187,18 +207,22 @@ void VulkanBootstrapApp::shutdownRenderer()
   if (vertexBufferMemory_ != VK_NULL_HANDLE)
   {
     vkFreeMemory(device_, vertexBufferMemory_, nullptr);
+    vertexBufferMemory_ = VK_NULL_HANDLE;
   }
   if (device_ != VK_NULL_HANDLE)
   {
     vkDestroyDevice(device_, nullptr);
+    device_ = VK_NULL_HANDLE;
   }
   if (surface_ != VK_NULL_HANDLE)
   {
     vkDestroySurfaceKHR(instance_, surface_, nullptr);
+    surface_ = VK_NULL_HANDLE;
   }
   if (instance_ != VK_NULL_HANDLE)
   {
     vkDestroyInstance(instance_, nullptr);
+    instance_ = VK_NULL_HANDLE;
   }
 }
 
@@ -235,10 +259,34 @@ void VulkanBootstrapApp::createInstance()
 #endif
 
 #ifdef MCE_VULKAN_VALIDATION
-  const char* validationLayers[] = {"VK_LAYER_KHRONOS_validation"};
-  createInfo.enabledLayerCount = 1;
-  createInfo.ppEnabledLayerNames = validationLayers;
-  std::cout << "[mce_vulkan_boot] Vulkan validation layers enabled\n";
+  {
+    uint32_t layerCount = 0;
+    vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+    std::vector<VkLayerProperties> availableLayers(layerCount);
+    vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+
+    bool validationAvailable = false;
+    for (const auto& layer : availableLayers)
+    {
+      if (std::string(layer.layerName) == "VK_LAYER_KHRONOS_validation")
+      {
+        validationAvailable = true;
+        break;
+      }
+    }
+
+    if (validationAvailable)
+    {
+      static const char* validationLayers[] = {"VK_LAYER_KHRONOS_validation"};
+      createInfo.enabledLayerCount = 1;
+      createInfo.ppEnabledLayerNames = validationLayers;
+      std::cout << "[mce_vulkan_boot] Vulkan validation layers enabled\n";
+    }
+    else
+    {
+      std::cout << "[mce_vulkan_boot] Validation layers requested but VK_LAYER_KHRONOS_validation not available\n";
+    }
+  }
 #endif
 
   if (vkCreateInstance(&createInfo, nullptr, &instance_) != VK_SUCCESS)
@@ -443,7 +491,20 @@ std::vector<const char *> VulkanBootstrapApp::getRequiredInstanceExtensions() co
   extensions.push_back(kGetPhysicalDeviceProperties2Extension);
 #endif
 #ifdef MCE_VULKAN_VALIDATION
-  extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+  {
+    uint32_t extCount = 0;
+    vkEnumerateInstanceExtensionProperties(nullptr, &extCount, nullptr);
+    std::vector<VkExtensionProperties> availableExts(extCount);
+    vkEnumerateInstanceExtensionProperties(nullptr, &extCount, availableExts.data());
+    for (const auto& ext : availableExts)
+    {
+      if (std::string(ext.extensionName) == VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
+      {
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        break;
+      }
+    }
+  }
 #endif
   return extensions;
 }

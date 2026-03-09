@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "GuiParticle.h"
-#include "..\Minecraft.World\Random.h"
-
+#include "../Minecraft.World/Random.h"
 Random *GuiParticle::random = new Random();
 
 GuiParticle::GuiParticle(double x, double y, double xa, double ya)

@@ -334,8 +334,19 @@ public:
 
 	unsigned int						CRC(unsigned char *buf, int len);
 
+	// Sub-file management (used by ConsoleSaveFileSplit)
+	C4JStorage::ESaveGameState	GetSaveState() { return ESaveGame_Idle; }
+	unsigned int				GetSubfileCount() { return 0; }
+	void						ResetSubfiles() {}
+	void						GetSubfileDetails(int idx, unsigned int *subfileId, unsigned char **data, unsigned int *sizeOut)
+								{ (void)idx; if(subfileId) *subfileId=0; if(data) *data=NULL; if(sizeOut) *sizeOut=0; }
+	void						UpdateSubfile(int idx, unsigned char *data, unsigned int size) { (void)idx; (void)data; (void)size; }
+	int							AddSubfile(unsigned int subfileId) { (void)subfileId; return 0; }
+	C4JStorage::ESaveGameState	SaveSubfiles(int( *Func)(LPVOID ,const bool),LPVOID lpParam) { if(Func) Func(lpParam,true); return ESaveGame_Idle; }
+	void						ContinueIncompleteOperation() {}
+
 // #ifdef _DEBUG
-// 	void SetSaveName(int i);					
+// 	void SetSaveName(int i);
 // #endif
 	// string table for all the Storage problems. Loaded by the application
 	C4JStringTable				*m_pStringTable;

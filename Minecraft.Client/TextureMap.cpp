@@ -1,7 +1,7 @@
 #include "stdafx.h"
-#include "..\Minecraft.World\net.minecraft.world.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-#include "..\Minecraft.World\net.minecraft.world.item.h"
+#include "../Minecraft.World/net.minecraft.world.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
+#include "../Minecraft.World/net.minecraft.world.item.h"
 #include "Minecraft.h"
 #include "LevelRenderer.h"
 #include "EntityRenderDispatcher.h"
@@ -158,9 +158,14 @@ void TextureMap::stitch()
 			wstring animationDefinitionFile = textureName + L".txt";
 
 			TexturePack *texturePack = Minecraft::GetInstance()->skins->getSelected();
+#ifdef __APPLE__
+			bool requiresFallback = !texturePack->hasFile(L"/" + textureName + L".png", false);
+			InputStream *fileStream = texturePack->getResource(L"/" + path + animationDefinitionFile, requiresFallback);
+#else
 			bool requiresFallback = !texturePack->hasFile(L"\\" + textureName + L".png", false);
+			InputStream *fileStream = texturePack->getResource(L"\\" + path + animationDefinitionFile, requiresFallback);
+#endif
 			//try {
-				InputStream *fileStream = texturePack->getResource(L"\\" + path + animationDefinitionFile, requiresFallback);
 
 				//Minecraft::getInstance()->getLogger().info("Found animation info for: " + animationDefinitionFile);
 #ifndef _CONTENT_PACKAGE

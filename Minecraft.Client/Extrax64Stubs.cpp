@@ -6,42 +6,50 @@
 #include <time.h>
 
 #ifdef __PS3__
-#include "PS3\Sentient\SentientManager.h"
+#include "PS3/Sentient/SentientManager.h"
 #include "StatsCounter.h"
-#include "PS3\Social\SocialManager.h"
+#include "PS3/Social/SocialManager.h"
 #include <libsn.h>
 #include <libsntuner.h>
 #elif defined _DURANGO
-#include "Durango\Sentient\SentientManager.h"
+#include "Durango/Sentient/SentientManager.h"
 #include "StatsCounter.h"
-#include "Durango\Social\SocialManager.h"
-#include "Durango\Sentient\DynamicConfigurations.h"
-#include "Durango\DurangoExtras\xcompress.h"
+#include "Durango/Social/SocialManager.h"
+#include "Durango/Sentient/DynamicConfigurations.h"
+#include "Durango/DurangoExtras/xcompress.h"
 #elif defined _WINDOWS64
-#include "Windows64\Sentient\SentientManager.h"
+#include "Windows64/Sentient/SentientManager.h"
 #include "StatsCounter.h"
-#include "Windows64\Social\SocialManager.h"
-#include "Windows64\Sentient\DynamicConfigurations.h"
+#include "Windows64/Social/SocialManager.h"
+#include "Windows64/Sentient/DynamicConfigurations.h"
+#include "AchievementScreen.h"
+#include "Minecraft.h"
+#elif defined __APPLE__
+#include "Windows64/Sentient/SentientManager.h"
+#include "StatsCounter.h"
+#include "Windows64/Social/SocialManager.h"
 #include "AchievementScreen.h"
 #include "Minecraft.h"
 #elif defined __PSVITA__
-#include "PSVita\Sentient\SentientManager.h"
+#include "PSVita/Sentient/SentientManager.h"
 #include "StatsCounter.h"
-#include "PSVita\Social\SocialManager.h"
-#include "PSVita\Sentient\DynamicConfigurations.h"
+#include "PSVita/Social/SocialManager.h"
+#include "PSVita/Sentient/DynamicConfigurations.h"
 #include <libperf.h>
 #else
-#include "Orbis\Sentient\SentientManager.h"
+#include "Orbis/Sentient/SentientManager.h"
 #include "StatsCounter.h"
-#include "Orbis\Social\SocialManager.h"
-#include "Orbis\Sentient\DynamicConfigurations.h"
+#include "Orbis/Social/SocialManager.h"
+#include "Orbis/Sentient/DynamicConfigurations.h"
 #include <perf.h>
 #endif
 
 #ifdef _WINDOWS64
 #include "discord_game_sdk.h"
 #pragma comment(lib, "discord_game_sdk.dll.lib")
-#include "Windows64\Network\WinsockNetLayer.h"
+#include "Windows64/Network/WinsockNetLayer.h"
+#elif defined(__APPLE__)
+#include "Windows64/Network/WinsockNetLayer.h"
 #endif
 
 #ifndef E_FAIL
@@ -53,7 +61,10 @@
 #endif
 
 #if !defined(__PS3__) && !defined(__ORBIS__) && !defined(__PSVITA__)
-#ifdef _WINDOWS64
+#ifdef __APPLE__
+C4JStorage StorageManager;
+C_4JProfile ProfileManager;
+#elif defined _WINDOWS64
 //C4JStorage StorageManager;
 C_4JProfile ProfileManager;
 #endif
@@ -71,6 +82,14 @@ VOID ATG::XMLParser::RegisterSAXCallbackInterface( ISAXCallback *pISAXCallback )
 #endif
 
 int m_userIndex = -1; // FOR SPLITSCREEN BULLSHIT
+
+#if defined(__APPLE__)
+// Stub Discord identity variables (no Discord SDK on macOS)
+static char s_discordUsername[32] = "";
+static ULONGLONG s_discordXuid = 0;
+static void InitDiscordIdentity() {}
+void TickDiscord() {}
+#endif
 
 #ifdef _WINDOWS64
 static char s_discordUsername[32] = "";
@@ -382,7 +401,7 @@ namespace
 		if(s_stubIdentityInitialised)
 			return;
 
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 		// Try to get Discord identity first
 		if(s_discordXuid == 0)
 		{
@@ -391,7 +410,7 @@ namespace
 #endif
 
 		DWORD pid = 1;
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 		pid = GetCurrentProcessId();
 #endif
 
@@ -847,7 +866,7 @@ void C_4JProfile::GetXUID(int iPad, PlayerUID *pXuid, bool bOnlineXuid)
 {
     if(pXuid == NULL) return;
 
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
     if (iPad == 0)
     {
         if (IQNet::s_isHosting)

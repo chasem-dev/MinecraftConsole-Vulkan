@@ -4,8 +4,7 @@
 #include "GuiParticles.h"
 #include "Tesselator.h"
 #include "Textures.h"
-#include "..\Minecraft.World\SoundTypes.h"
-
+#include "../Minecraft.World/SoundTypes.h"
 
 
 Screen::Screen()	// 4J added
@@ -170,22 +169,19 @@ void Screen::renderBackground(int vo)
 
 void Screen::renderDirtBackground(int vo)
 {
-	// 4J Unused
-#if 0
     glDisable(GL_LIGHTING);
     glDisable(GL_FOG);
     Tesselator *t = Tesselator::getInstance();
-    glBindTexture(GL_TEXTURE_2D, minecraft->textures->loadTexture(L"/gui/background.png"));
+    glBindTexture(GL_TEXTURE_2D, minecraft->textures->loadTexture(TN_GUI_BACKGROUND));
     glColor4f(1, 1, 1, 1);
-    float s = 32;
+    float ts = 32.0f;
     t->begin();
     t->color(0x404040);
-    t->vertexUV((float)(0), (float)( height), (float)( 0), (float)( 0), (float)( height / s + vo));
-    t->vertexUV((float)(width), (float)( height), (float)( 0), (float)( width / s), (float)( height / s + vo));
-    t->vertexUV((float)(width), (float)( 0), (float)( 0), (float)( width / s), (float)( 0 + vo));
-    t->vertexUV((float)(0), (float)( 0), (float)( 0), (float)( 0), (float)( 0 + vo));
+    t->vertexUV(0.0f, (float)height, 0.0f, 0.0f, (float)height / ts + (float)vo);
+    t->vertexUV((float)width, (float)height, 0.0f, (float)width / ts, (float)height / ts + (float)vo);
+    t->vertexUV((float)width, 0.0f, 0.0f, (float)width / ts, (float)vo);
+    t->vertexUV(0.0f, 0.0f, 0.0f, 0.0f, (float)vo);
     t->end();
-#endif
 }
 
 bool Screen::isPauseScreen()

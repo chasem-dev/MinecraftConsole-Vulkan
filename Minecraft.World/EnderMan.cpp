@@ -7,7 +7,7 @@
 #include "net.minecraft.world.damagesource.h"
 #include "net.minecraft.world.phys.h"
 #include "com.mojang.nbt.h"
-#include "..\Minecraft.Client\Textures.h"
+#include "../Minecraft.Client/Textures.h"
 #include "EnderMan.h"
 
 

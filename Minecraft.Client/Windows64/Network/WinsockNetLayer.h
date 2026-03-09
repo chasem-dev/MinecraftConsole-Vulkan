@@ -1,13 +1,27 @@
 #pragma once
 
-#ifdef _WINDOWS64
+#if defined(_WINDOWS64) || defined(__APPLE__)
 
+#ifdef _WINDOWS64
 #include <WinSock2.h>
 #include <WS2tcpip.h>
-#include <vector>
-#include "..\..\Common\Network\NetworkPlayerInterface.h"
-
 #pragma comment(lib, "Ws2_32.lib")
+#endif
+
+#ifdef __APPLE__
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#ifndef SOCKET
+typedef int SOCKET;
+#endif
+#ifndef INVALID_SOCKET
+#define INVALID_SOCKET (-1)
+#endif
+#endif
+
+#include <vector>
+#include "../../Common/Network/NetworkPlayerInterface.h"
 
 #define WIN64_NET_DEFAULT_PORT 25565
 #define WIN64_NET_MAX_CLIENTS 7

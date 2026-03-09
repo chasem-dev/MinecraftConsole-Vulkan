@@ -2,8 +2,8 @@
 #ifdef _WINDOWS64
 
 #include "LANSessionManager.h"
-#include "..\..\..\Minecraft.World\System.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
+#include "../../../Minecraft.World/System.h"
+#include "../../../Minecraft.World/StringHelpers.h"
 #include <cstdlib>
 #include <ctime>
 

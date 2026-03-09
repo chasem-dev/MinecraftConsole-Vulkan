@@ -6,8 +6,7 @@ typedef unsigned int DWORD;
 typedef unsigned char byte;
 #include <float.h>
 #else 
-#include "..\..\..\stdafx.h"
-class ChunkRebuildData;
+#include "../../../stdafx.h"class ChunkRebuildData;
 #endif
 #endif
 class intArray_SPU

@@ -26,6 +26,9 @@ private:
 	UI_END_MAP_ELEMENTS_AND_NAMES()
 
 	bool m_bNotInGame;
+#if defined(__APPLE__)
+	int m_appleSelectedIndex;
+#endif
 public:
 	UIScene_HelpAndOptionsMenu(int iPad, void *initData, UILayer *parentLayer);
 	virtual ~UIScene_HelpAndOptionsMenu();
@@ -44,6 +47,14 @@ public:
 
 	// INPUT
 	virtual void handleInput(int iPad, int key, bool repeat, bool pressed, bool released, bool &handled);
+
+#if defined(__APPLE__)
+	int appleGetSelectedIndex();
+	void appleSetSelectedIndex(int index);
+	int appleGetVisibleButtonCount();
+	int appleGetControlIdForVisibleButton(int index);
+	const wchar_t *appleGetLabelForVisibleButton(int index);
+#endif
 
 protected:
 	void handlePress(F64 controlId, F64 childId);

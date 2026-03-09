@@ -3,16 +3,15 @@
 #include "MultiPlayerLocalPlayer.h"
 #include "ClientConnection.h"
 #include "MultiPlayerChunkCache.h"
-#include "..\Minecraft.World\net.minecraft.world.level.storage.h"
-#include "..\Minecraft.World\net.minecraft.world.level.dimension.h"
-#include "..\Minecraft.World\Pos.h"
+#include "../Minecraft.World/net.minecraft.world.level.storage.h"
+#include "../Minecraft.World/net.minecraft.world.level.dimension.h"
+#include "../Minecraft.World/Pos.h"
 #include "MinecraftServer.h"
 #include "ServerLevel.h"
 #include "Minecraft.h"
-#include "..\Minecraft.World\PrimedTnt.h"
-#include "..\Minecraft.World\Tile.h"
-#include "..\Minecraft.World\TileEntity.h"
-
+#include "../Minecraft.World/PrimedTnt.h"
+#include "../Minecraft.World/Tile.h"
+#include "../Minecraft.World/TileEntity.h"
 MultiPlayerLevel::ResetInfo::ResetInfo(int x, int y, int z, int tile, int data)
 {
     this->x = x;

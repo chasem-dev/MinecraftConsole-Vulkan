@@ -2,11 +2,10 @@
 #include "SignRenderer.h"
 #include "SignModel.h"
 #include "ModelPart.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.entity.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-#include "..\Minecraft.World\Entity.h"
-#include "..\Minecraft.World\Level.h"
-
+#include "../Minecraft.World/net.minecraft.world.level.tile.entity.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
+#include "../Minecraft.World/Entity.h"
+#include "../Minecraft.World/Level.h"
 
 SignRenderer::SignRenderer()
 {

@@ -11,7 +11,7 @@ public:
 	T *data;
 	unsigned int length;
 	arrayWithLength() { data = NULL; length = 0; }
-	arrayWithLength(unsigned int elements, bool bClearArray=true) { assert(elements!=0); data = new T[elements];  if(bClearArray){ memset( data,0,sizeof(T)*elements); }  this->length = elements; }
+	arrayWithLength(unsigned int elements, bool bClearArray=true) { if(elements==0){ data = NULL; length = 0; return; } data = new T[elements];  if(bClearArray){ memset( data,0,sizeof(T)*elements); }  this->length = elements; }
 
 	// 4J Stu Added this ctor so I static init arrays in the Item derivation tree
 	arrayWithLength( T data[], unsigned int elements) { this->data = data; this->length = elements; }

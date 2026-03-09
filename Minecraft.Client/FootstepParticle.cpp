@@ -2,9 +2,8 @@
 #include "FootstepParticle.h"
 #include "Textures.h"
 #include "Tesselator.h"
-#include "..\Minecraft.World\Mth.h"
-#include "..\Minecraft.World\net.minecraft.world.level.h"
-
+#include "../Minecraft.World/Mth.h"
+#include "../Minecraft.World/net.minecraft.world.level.h"
 FootstepParticle::FootstepParticle(Textures *textures, Level *level, double x, double y, double z) : Particle(level, x, y, z, 0, 0, 0)
 {
 	// 4J added initialisers

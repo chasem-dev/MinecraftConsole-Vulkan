@@ -2,8 +2,7 @@
 #include "XUI_FontRenderer.h"
 #include "XUI_Font.h"
 #include "XUI_FontData.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-
+#include "../../../Minecraft.World/StringHelpers.h"
 extern IDirect3DDevice9 *g_pD3DDevice;
 extern void GetRenderAndSamplerStates(IDirect3DDevice9 *pDevice,DWORD *RenderStateA,DWORD *SamplerStateA);
 extern void SetRenderAndSamplerStates(IDirect3DDevice9 *pDevice,DWORD *RenderStateA,DWORD *SamplerStateA);

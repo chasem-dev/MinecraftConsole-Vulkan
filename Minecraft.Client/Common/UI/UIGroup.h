@@ -37,7 +37,7 @@ private:
 public:
 	UIGroup(EUIGroup group, int iPad);
 
-#ifdef __PSVITA__
+#if defined(__PSVITA__) || defined(__APPLE__)
 	EUIGroup GetGroup() {return m_group;}
 #endif
 	UIComponent_Tooltips *getTooltips() { return m_tooltips; }

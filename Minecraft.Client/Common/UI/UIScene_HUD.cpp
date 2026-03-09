@@ -1,15 +1,14 @@
 #include "stdafx.h"
 #include "UI.h"
 #include "UIScene_HUD.h"
-#include "..\..\Minecraft.h"
-#include "..\..\MultiplayerLocalPlayer.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.entity.boss.enderdragon.h"
-#include "..\..\EnderDragonRenderer.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.inventory.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.item.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.effect.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-
+#include "../../Minecraft.h"
+#include "../../MultiplayerLocalPlayer.h"
+#include "../../../Minecraft.World/net.minecraft.world.entity.boss.enderdragon.h"
+#include "../../EnderDragonRenderer.h"
+#include "../../../Minecraft.World/net.minecraft.world.inventory.h"
+#include "../../../Minecraft.World/net.minecraft.world.item.h"
+#include "../../../Minecraft.World/net.minecraft.world.effect.h"
+#include "../../../Minecraft.World/StringHelpers.h"
 UIScene_HUD::UIScene_HUD(int iPad, void *initData, UILayer *parentLayer) : UIScene(iPad, parentLayer)
 {
 	m_bSplitscreen = false;

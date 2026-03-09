@@ -2,8 +2,7 @@
 class Mob;
 class Options;
 using namespace std;
-#include "..\..\..\Minecraft.World\SoundTypes.h"
-
+#include "../../../Minecraft.World/SoundTypes.h"
 #ifdef _XBOX
 extern IXAudio2* g_pXAudio2;       // pointer to XAudio2 instance used by QNet and XACT
 extern IXAudio2MasteringVoice* g_pXAudio2MasteringVoice;  // pointer to XAudio2 mastering voice

@@ -18,7 +18,7 @@
 #include "net.minecraft.world.item.enchantment.h"
 #include "com.mojang.nbt.h"
 #include "Mob.h"
-#include "..\Minecraft.Client\Textures.h"
+#include "../Minecraft.Client/Textures.h"
 #include "SoundTypes.h"
 #include "BasicTypeContainers.h"
 #include "ParticleTypes.h"

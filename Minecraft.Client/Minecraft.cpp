@@ -37,45 +37,47 @@
 #ifdef _WINDOWS64
 #include "KeyboardMouseInput.h"
 #include "KeyMapping.h"
+#elif defined(__APPLE__)
+#include "KeyMapping.h"
 #endif
 
-#include "..\Minecraft.World\MobEffect.h"
-#include "..\Minecraft.World\Difficulty.h"
-#include "..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.player.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.item.h"
-#include "..\Minecraft.World\net.minecraft.world.phys.h"
-#include "..\Minecraft.World\File.h"
-#include "..\Minecraft.World\net.minecraft.world.level.storage.h"
-#include "..\Minecraft.World\net.minecraft.h"
-#include "..\Minecraft.World\net.minecraft.stats.h"
-#include "..\Minecraft.World\System.h"
-#include "..\Minecraft.World\ByteBuffer.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-#include "..\Minecraft.World\net.minecraft.world.level.chunk.h"
-#include "..\Minecraft.World\net.minecraft.world.level.dimension.h"
-#include "..\Minecraft.World\net.minecraft.world.item.h"
-#include "..\Minecraft.World\Minecraft.World.h"
+#include "../Minecraft.World/MobEffect.h"
+#include "../Minecraft.World/Difficulty.h"
+#include "../Minecraft.World/net.minecraft.world.level.h"
+#include "../Minecraft.World/net.minecraft.world.entity.h"
+#include "../Minecraft.World/net.minecraft.world.entity.player.h"
+#include "../Minecraft.World/net.minecraft.world.entity.item.h"
+#include "../Minecraft.World/net.minecraft.world.phys.h"
+#include "../Minecraft.World/File.h"
+#include "../Minecraft.World/net.minecraft.world.level.storage.h"
+#include "../Minecraft.World/net.minecraft.h"
+#include "../Minecraft.World/net.minecraft.stats.h"
+#include "../Minecraft.World/System.h"
+#include "../Minecraft.World/ByteBuffer.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
+#include "../Minecraft.World/net.minecraft.world.level.chunk.h"
+#include "../Minecraft.World/net.minecraft.world.level.dimension.h"
+#include "../Minecraft.World/net.minecraft.world.item.h"
+#include "../Minecraft.World/Minecraft.World.h"
 #include "ClientConnection.h"
-#include "..\Minecraft.World\HellRandomLevelSource.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.animal.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.monster.h"
-#include "..\Minecraft.World\StrongholdFeature.h"
-#include "..\Minecraft.World\IntCache.h"
-#include "..\Minecraft.World\Villager.h"
-#include "..\Minecraft.World\SparseLightStorage.h"
-#include "..\Minecraft.World\SparseDataStorage.h"
+#include "../Minecraft.World/HellRandomLevelSource.h"
+#include "../Minecraft.World/net.minecraft.world.entity.animal.h"
+#include "../Minecraft.World/net.minecraft.world.entity.monster.h"
+#include "../Minecraft.World/StrongholdFeature.h"
+#include "../Minecraft.World/IntCache.h"
+#include "../Minecraft.World/Villager.h"
+#include "../Minecraft.World/SparseLightStorage.h"
+#include "../Minecraft.World/SparseDataStorage.h"
 #include "TextureManager.h"
 #ifdef _XBOX
-#include "Xbox\Network\NetworkPlayerXbox.h"
+#include "Xbox/Network/NetworkPlayerXbox.h"
 #endif
-#include "Common\UI\IUIScene_CreativeMenu.h"
-#include "Common\UI\UIFontData.h"
+#include "Common/UI/IUIScene_CreativeMenu.h"
+#include "Common/UI/UIFontData.h"
 #include "DLCTexturePack.h"
 
 #ifdef __ORBIS__
-#include "Orbis\Network\PsPlusUpsellWrapper_Orbis.h"
+#include "Orbis/Network/PsPlusUpsellWrapper_Orbis.h"
 #endif
 
 // 4J Turning this on will change the graph at the bottom of the debug overlay to show the number of packets of each type added per fram
@@ -319,15 +321,33 @@ void Minecraft::init()
 
 	// glClearColor(0.2f, 0.2f, 0.2f, 1);
 
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] init: getWorkingDirectory...\n");
+#endif
 	workingDirectory = getWorkingDirectory();
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] init: McRegionLevelStorageSource...\n");
+#endif
 	levelSource = new McRegionLevelStorageSource(File(workingDirectory, L"saves"));
 	//        levelSource = new MemoryLevelStorageSource();
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] init: Options...\n");
+#endif
 	options = new Options(this, workingDirectory);
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] init: TexturePackRepository...\n");
+#endif
 	skins = new TexturePackRepository(workingDirectory, this);
 	skins->addDebugPacks();
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] init: Textures...\n");
+#endif
 	textures = new Textures(skins, options);
 	//renderLoadingScreen();
 
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] init: Fonts...\n");
+#endif
 	font = new Font(options, L"font/Default.png", textures, false, TN_DEFAULT_FONT, 23, 20, 8, 8, SFontData::Codepoints);
 	altFont = new Font(options, L"font/alternate.png", textures, false, TN_ALT_FONT, 16, 16, 8, 8);
 
@@ -343,7 +363,13 @@ void Minecraft::init()
 	//GrassColor::init(textures->loadTexturePixels(L"misc/grasscolor.png"));
 	//FoliageColor::init(textures->loadTexturePixels(L"misc/foliagecolor.png"));
 
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] init: GameRenderer...\n");
+#endif
 	gameRenderer = new GameRenderer(this);
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] init: ItemInHandRenderer...\n");
+#endif
 	EntityRenderDispatcher::instance->itemInHandRenderer = new ItemInHandRenderer(this,false);
 
 	for( int i=0 ; i<4 ; ++i )
@@ -517,6 +543,25 @@ File Minecraft::getWorkingDirectory()
 
 File Minecraft::getWorkingDirectory(const wstring& applicationName)
 {
+#ifdef __APPLE__
+	// On macOS, use ~/Library/Application Support/minecraft
+	const char *home = getenv("HOME");
+	if (home)
+	{
+		std::string homePath(home);
+		std::wstring wHome(homePath.begin(), homePath.end());
+		std::wstring appSupport = wHome + L"/Library/Application Support/" + applicationName;
+		File workingDirectory(appSupport);
+		if (!workingDirectory.exists())
+		{
+			workingDirectory.mkdirs();
+		}
+		return workingDirectory;
+	}
+	// Fallback to current directory
+	File workingDirectory(applicationName);
+	return workingDirectory;
+#else
 #if 0
 	// 4J - original version
 	final String userHome = System.getProperty("user.home", ".");
@@ -548,6 +593,7 @@ File Minecraft::getWorkingDirectory(const wstring& applicationName)
 	//	workingDirectory.mkdirs();
 	//}
 	return workingDirectory;
+#endif
 #endif
 }
 
@@ -4413,7 +4459,13 @@ void Minecraft::startAndConnectTo(const wstring& name, const wstring& sid, const
 	Minecraft *minecraft;
 	// 4J - was new Minecraft(frame, canvas, NULL, 854, 480, fullScreen);
 
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] Creating Minecraft instance...\n");
+#endif
 	minecraft = new Minecraft(NULL, NULL, NULL, 1280, 720, fullScreen);
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] Minecraft instance created\n");
+#endif
 
 	/* - 4J - removed
 	{
@@ -4471,7 +4523,13 @@ void Minecraft::startAndConnectTo(const wstring& name, const wstring& sid, const
 	});
 	*/
 	// 4J - TODO - consider whether we need to actually create a thread here
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] Calling minecraft->run()...\n");
+#endif
 	minecraft->run();
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] minecraft->run() returned\n");
+#endif
 }
 
 ClientConnection *Minecraft::getConnection(int iPad)
@@ -4498,12 +4556,33 @@ void Minecraft::main()
 
 	useLomp = true;
 
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] MinecraftWorld_RunStaticCtors...\n");
+#endif
 	MinecraftWorld_RunStaticCtors();
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] EntityRenderDispatcher::staticCtor...\n");
+#endif
 	EntityRenderDispatcher::staticCtor();
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] TileEntityRenderDispatcher::staticCtor...\n");
+#endif
 	TileEntityRenderDispatcher::staticCtor();
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] User::staticCtor...\n");
+#endif
 	User::staticCtor();
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] Tutorial::staticCtor...\n");
+#endif
 	Tutorial::staticCtor();
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] ColourTable::staticCtor...\n");
+#endif
 	ColourTable::staticCtor();
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] app.loadDefaultGameRules...\n");
+#endif
 	app.loadDefaultGameRules();
 
 #ifdef _LARGE_WORLDS
@@ -4543,12 +4622,21 @@ void Minecraft::main()
 	}
 
 	// Common for all platforms
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] IUIScene_CreativeMenu::staticCtor...\n");
+#endif
 	IUIScene_CreativeMenu::staticCtor();
 
 	// On PS4, we call Minecraft::Start from another thread, as this has been timed taking ~2.5 seconds and we need to do some basic
 	// rendering stuff so that we don't break the TRCs on SubmitDone calls
 #ifndef __ORBIS__
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] Minecraft::start...\n");
+#endif
 	Minecraft::start(name, sessionId);
+#endif
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] Minecraft::main() complete\n");
 #endif
 }
 

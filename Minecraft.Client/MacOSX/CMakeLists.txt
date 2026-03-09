@@ -81,6 +81,8 @@ add_executable(mce_vulkan_boot MACOSX_BUNDLE
 
 add_library(mce_core_probe OBJECT EXCLUDE_FROM_ALL
   "../Apple/Apple_App.cpp"
+  "../Apple/GDrawGLContext.mm"
+  "../Apple/gdraw_apple.c"
   "../Vulkan/Vulkan_UIController.cpp"
 )
 
@@ -105,34 +107,41 @@ add_library(mce_world_legacy OBJECT EXCLUDE_FROM_ALL
 )
 
 set(MCE_SHADER_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
-set(MCE_VERTEX_SHADER "${MCE_SHADER_OUTPUT_DIR}/bootstrap_triangle.vert.spv")
-set(MCE_FRAGMENT_SHADER "${MCE_SHADER_OUTPUT_DIR}/bootstrap_triangle.frag.spv")
-
-add_custom_command(
-  OUTPUT "${MCE_VERTEX_SHADER}"
-  COMMAND "${CMAKE_COMMAND}" -E make_directory "${MCE_SHADER_OUTPUT_DIR}"
-  COMMAND "${GLSLANG_VALIDATOR}" -V -S vert
-    "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/bootstrap_triangle.vert"
-    -o "${MCE_VERTEX_SHADER}"
-  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/bootstrap_triangle.vert"
-  COMMENT "Compiling bootstrap vertex shader"
-  VERBATIM
+set(MCE_SHADER_SOURCES
+  "mce_color.vert"
+  "mce_color.frag"
+  "mce_textured.vert"
+  "mce_textured.frag"
+  "mce_textured_alphatest.frag"
+  "mce_textured_fog.frag"
 )
+set(MCE_SHADER_OUTPUTS)
 
-add_custom_command(
-  OUTPUT "${MCE_FRAGMENT_SHADER}"
-  COMMAND "${CMAKE_COMMAND}" -E make_directory "${MCE_SHADER_OUTPUT_DIR}"
-  COMMAND "${GLSLANG_VALIDATOR}" -V -S frag
-    "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/bootstrap_triangle.frag"
-    -o "${MCE_FRAGMENT_SHADER}"
-  DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/bootstrap_triangle.frag"
-  COMMENT "Compiling bootstrap fragment shader"
-  VERBATIM
-)
+foreach(shader IN LISTS MCE_SHADER_SOURCES)
+  set(output "${MCE_SHADER_OUTPUT_DIR}/${shader}.spv")
+  if(shader MATCHES "\\.vert$")
+    set(stage "vert")
+  else()
+    set(stage "frag")
+  endif()
+
+  add_custom_command(
+    OUTPUT "${output}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${MCE_SHADER_OUTPUT_DIR}"
+    COMMAND "${GLSLANG_VALIDATOR}" -V -S "${stage}"
+      "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/${shader}"
+      -o "${output}"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/Shaders/${shader}"
+    COMMENT "Compiling ${shader}"
+    VERBATIM
+  )
+
+  list(APPEND MCE_SHADER_OUTPUTS "${output}")
+endforeach()
 
 add_custom_target(
   mce_vulkan_boot_shaders
-  DEPENDS "${MCE_VERTEX_SHADER}" "${MCE_FRAGMENT_SHADER}"
+  DEPENDS ${MCE_SHADER_OUTPUTS}
 )
 
 add_dependencies(mce_vulkan_boot mce_vulkan_boot_shaders)
@@ -152,6 +161,7 @@ set(MCE_LEGACY_FLAGS
   -Wno-#pragma-messages
   -Wno-reorder-ctor
   -Wno-delete-incomplete
+  -Wno-inconsistent-missing-override
   -Wno-switch
   -Wno-unused-value
   -Wno-unused-variable
@@ -181,10 +191,14 @@ target_include_directories(mce_vulkan_boot PRIVATE
 target_include_directories(mce_core_probe PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/.."
+  "${CMAKE_SOURCE_DIR}/Minecraft.Client"
+  "${CMAKE_SOURCE_DIR}/Minecraft.World"
   "${CMAKE_SOURCE_DIR}/Minecraft.World/x64headers"
   "${CMAKE_SOURCE_DIR}/Minecraft.Client/PS3/PS3Extras/DirectX"
   "${CMAKE_CURRENT_SOURCE_DIR}/../Vulkan"
   "${CMAKE_CURRENT_SOURCE_DIR}/../Vulkan/4JLibs/inc"
+  "${CMAKE_SOURCE_DIR}/Minecraft.Client/Windows64/Iggy/include"
+  "${CMAKE_SOURCE_DIR}/Minecraft.Client/Windows64/Iggy/gdraw"
 )
 target_include_directories(mce_client_legacy PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
@@ -207,23 +221,24 @@ target_include_directories(mce_world_legacy PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/../Vulkan/4JLibs/inc"
 )
 target_compile_definitions(mce_vulkan_boot PRIVATE
-  MCE_BOOT_VERTEX_SHADER_PATH="${MCE_VERTEX_SHADER}"
-  MCE_BOOT_FRAGMENT_SHADER_PATH="${MCE_FRAGMENT_SHADER}"
+  MCE_CLIENT_ROOT="${CMAKE_SOURCE_DIR}/Minecraft.Client"
+  MCE_SHADER_DIR="${MCE_SHADER_OUTPUT_DIR}"
   MCE_VULKAN_VALIDATION
 )
 target_compile_definitions(mce_core_probe PRIVATE
-  MCE_BOOT_VERTEX_SHADER_PATH="${MCE_VERTEX_SHADER}"
-  MCE_BOOT_FRAGMENT_SHADER_PATH="${MCE_FRAGMENT_SHADER}"
+  MCE_CLIENT_ROOT="${CMAKE_SOURCE_DIR}/Minecraft.Client"
+  MCE_SHADER_DIR="${MCE_SHADER_OUTPUT_DIR}"
   MCE_VULKAN_VALIDATION
+  GL_SILENCE_DEPRECATION
 )
 target_compile_definitions(mce_client_legacy PRIVATE
-  MCE_BOOT_VERTEX_SHADER_PATH="${MCE_VERTEX_SHADER}"
-  MCE_BOOT_FRAGMENT_SHADER_PATH="${MCE_FRAGMENT_SHADER}"
+  MCE_CLIENT_ROOT="${CMAKE_SOURCE_DIR}/Minecraft.Client"
+  MCE_SHADER_DIR="${MCE_SHADER_OUTPUT_DIR}"
   MCE_VULKAN_VALIDATION
 )
 target_compile_definitions(mce_world_legacy PRIVATE
-  MCE_BOOT_VERTEX_SHADER_PATH="${MCE_VERTEX_SHADER}"
-  MCE_BOOT_FRAGMENT_SHADER_PATH="${MCE_FRAGMENT_SHADER}"
+  MCE_CLIENT_ROOT="${CMAKE_SOURCE_DIR}/Minecraft.Client"
+  MCE_SHADER_DIR="${MCE_SHADER_OUTPUT_DIR}"
   MCE_VULKAN_VALIDATION
 )
 target_link_libraries(mce_vulkan_boot PRIVATE Vulkan::Vulkan ${MCE_GLFW_TARGET})
@@ -238,5 +253,6 @@ if(APPLE)
     "-framework CoreVideo"
     "-framework QuartzCore"
     "-framework Metal"
+    "-framework OpenGL"
   )
 endif()

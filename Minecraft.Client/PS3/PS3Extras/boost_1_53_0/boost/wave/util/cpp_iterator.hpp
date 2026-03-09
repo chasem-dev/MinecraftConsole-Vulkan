@@ -1121,7 +1121,8 @@ pp_iterator_functor<ContextT>::handle_pp_directive(IteratorT &it)
                     if (!ctx.enter_elif_block(false)) {
                     // #else without matching #if
                         BOOST_WAVE_THROW_CTX(ctx, preprocess_exception,
-                            missing_matching_if, "#elif", act_pos);
+                            missing_matching_if, "
+#elif", act_pos);
                         return true;  // do not analyze this directive any further
                     }
                 }
@@ -1921,7 +1922,8 @@ pp_iterator_functor<ContextT>::on_else()
     if (!ctx.enter_else_block()) {
     // #else without matching #if
         BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, missing_matching_if,
-            "#else", act_pos);
+            "
+#else", act_pos);
     }
 }
 
@@ -1937,7 +1939,8 @@ pp_iterator_functor<ContextT>::on_endif()
     if (!ctx.exit_if_block()) {
     // #endif without matching #if
         BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, missing_matching_if,
-            "#endif", act_pos);
+            "
+#endif", act_pos);
     }
 }
 
@@ -2077,7 +2080,8 @@ token_sequence_type toexpand;
         if (!ctx.enter_elif_block(false)) {
         // #else without matching #if
             BOOST_WAVE_THROW_CTX(ctx, preprocess_exception,
-                missing_matching_if, "#elif", act_pos);
+                missing_matching_if, "
+#elif", act_pos);
             // fall through...
         }
 
@@ -2106,7 +2110,8 @@ token_sequence_type expanded;
         {
             string_type outstr(boost::wave::util::impl::as_string(toexpand));
             outstr += "(" + boost::wave::util::impl::as_string(expanded) + ")";
-            BOOST_WAVE_DUMP_CONDITIONAL_EXPRESSIONS_OUT << "#elif " << outstr << std::endl;
+            BOOST_WAVE_DUMP_CONDITIONAL_EXPRESSIONS_OUT << "
+#elif " << outstr << std::endl;
         }
 #endif
 
@@ -2133,7 +2138,8 @@ token_sequence_type expanded;
     if (!ctx.enter_elif_block(if_status)) {
     // #elif without matching #if
         BOOST_WAVE_THROW_CTX(ctx, preprocess_exception, missing_matching_if,
-            "#elif", act_pos);
+            "
+#elif", act_pos);
         return;
     }
 

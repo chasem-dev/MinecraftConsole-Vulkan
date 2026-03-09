@@ -31,6 +31,8 @@ public:
 private:
 	Button *clickedButton;
 
+public:
+	void handleMouseInput(int x, int y, int buttonNum, bool pressed) { if (pressed) mouseClicked(x, y, buttonNum); else mouseReleased(x, y, buttonNum); }
 protected:
 	virtual void mouseClicked(int x, int y, int buttonNum);
     virtual void mouseReleased(int x, int y, int buttonNum);

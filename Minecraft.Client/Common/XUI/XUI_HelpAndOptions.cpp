@@ -4,8 +4,7 @@
 #include "stdafx.h"
 
 #include <assert.h>
-#include "..\XUI\XUI_HelpAndOptions.h"
-
+#include "../XUI/XUI_HelpAndOptions.h"
 
 //----------------------------------------------------------------------------------
 // Performs initialization tasks - retrieves controls.

@@ -1,9 +1,8 @@
 #include "stdafx.h"
 #include "UI.h"
 #include "UIComponent_Chat.h"
-#include "..\..\Minecraft.h"
-#include "..\..\Gui.h"
-
+#include "../../Minecraft.h"
+#include "../../Gui.h"
 UIComponent_Chat::UIComponent_Chat(int iPad, void *initData, UILayer *parentLayer) : UIScene(iPad, parentLayer)
 {
 	// Setup all the Iggy references we need for this scene

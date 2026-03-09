@@ -1,13 +1,12 @@
 #include "stdafx.h"
 #include "ExperienceOrbRenderer.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-#include "..\Minecraft.World\net.minecraft.world.item.h"
+#include "../Minecraft.World/net.minecraft.world.entity.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
+#include "../Minecraft.World/net.minecraft.world.item.h"
 #include "Tesselator.h"
 #include "EntityRenderDispatcher.h"
-#include "..\Minecraft.World\Mth.h"
-#include "..\Minecraft.World\JavaMath.h"
-
+#include "../Minecraft.World/Mth.h"
+#include "../Minecraft.World/JavaMath.h"
 ExperienceOrbRenderer::ExperienceOrbRenderer()
 {
 	// 4J In class Java initialisors

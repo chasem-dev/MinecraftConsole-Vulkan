@@ -8,11 +8,10 @@
 #include "Textures.h"
 #include "StatsCounter.h"
 #include "ItemRenderer.h"
-#include "..\Minecraft.World\System.h"
-#include "..\Minecraft.World\net.minecraft.locale.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-#include "..\Minecraft.World\JavaMath.h"
-
+#include "../Minecraft.World/System.h"
+#include "../Minecraft.World/net.minecraft.locale.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
+#include "../Minecraft.World/JavaMath.h"
 
 
 AchievementScreen::AchievementScreen(StatsCounter *statsCounter)
@@ -412,7 +411,7 @@ void AchievementScreen::renderBg(int xm, int ym, float a)
 		else
 		{
             int width = Math::_max(font->width(name), 120);
-            wstring msg = I18n::get(L"achievement.requires", ach->requires->name);
+            wstring msg = I18n::get(L"achievement.requires", ach->requires->name.c_str());
             int height = font->wordWrapHeight(msg, width);
             fillGradient(x - 3, y - 3, x + width + 3, y + height + 12 + 3, 0xc0000000, 0xc0000000);
             font->drawWordWrap(msg, x, y + 12, width, 0xff705050, font->wordWrapHeight(msg, width));

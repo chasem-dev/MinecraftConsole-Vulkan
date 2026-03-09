@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "net.minecraft.commands.h"
-#include "..\Minecraft.Client\MinecraftServer.h"
-#include "..\Minecraft.Client\PlayerList.h"
+#include "../Minecraft.Client/MinecraftServer.h"
+#include "../Minecraft.Client/PlayerList.h"
 #include "ExperienceCommand.h"
 
 EGameCommand ExperienceCommand::getId()

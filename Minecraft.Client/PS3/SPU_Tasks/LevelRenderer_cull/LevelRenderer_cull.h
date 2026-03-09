@@ -1,6 +1,5 @@
 #pragma once
-#include <vectormath\cpp\vectormath_aos.h>
-class ClipChunk_SPU
+#include <vectormath/cpp/vectormath_aos.h>class ClipChunk_SPU
 {
 public:
 	void *chunk;

@@ -2,17 +2,16 @@
 //#include "..\Minecraft.World\JavaMath.h"
 #include "MultiplayerLocalPlayer.h"
 #include "ClientConnection.h"
-#include "..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\Minecraft.World\net.minecraft.network.h"
-#include "..\Minecraft.World\Mth.h"
-#include "..\Minecraft.World\AABB.h"
-#include "..\Minecraft.World\net.minecraft.stats.h"
-#include "..\Minecraft.World\net.minecraft.world.inventory.h"
-#include "..\Minecraft.World\net.minecraft.world.level.dimension.h"
-#include "..\Minecraft.World\net.minecraft.world.effect.h"
-#include "..\Minecraft.World\LevelData.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.item.h"
-
+#include "../Minecraft.World/net.minecraft.world.level.h"
+#include "../Minecraft.World/net.minecraft.network.h"
+#include "../Minecraft.World/Mth.h"
+#include "../Minecraft.World/AABB.h"
+#include "../Minecraft.World/net.minecraft.stats.h"
+#include "../Minecraft.World/net.minecraft.world.inventory.h"
+#include "../Minecraft.World/net.minecraft.world.level.dimension.h"
+#include "../Minecraft.World/net.minecraft.world.effect.h"
+#include "../Minecraft.World/LevelData.h"
+#include "../Minecraft.World/net.minecraft.world.entity.item.h"
 
 
 

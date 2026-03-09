@@ -1,11 +1,10 @@
 #include "stdafx.h"
 
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-#include "..\..\..\Minecraft.World\Slot.h"
-#include "..\..\..\Minecraft.World\net.minecraft.world.item.h"
-#include "..\..\MultiPlayerLocalPlayer.h"
-#include "..\..\Minecraft.h"
-
+#include "../../../Minecraft.World/StringHelpers.h"
+#include "../../../Minecraft.World/Slot.h"
+#include "../../../Minecraft.World/net.minecraft.world.item.h"
+#include "../../MultiPlayerLocalPlayer.h"
+#include "../../Minecraft.h"
 #include "XUI_Ctrl_SlotItemCtrlBase.h"
 
 HRESULT CXuiCtrlSlotItemCtrlBase::OnInit( HXUIOBJ hObj, XUIMessageInit* pInitData, BOOL& bHandled )

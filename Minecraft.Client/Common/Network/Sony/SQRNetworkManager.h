@@ -1,8 +1,8 @@
 #pragma once
 #include <np.h>
 #ifdef __PS3__
-#include <netex\libnetctl.h>
-#include <netex\net.h>
+#include <netex/libnetctl.h>
+#include <netex/net.h>
 #else
 #include <libnetctl.h>
 #include <net.h>

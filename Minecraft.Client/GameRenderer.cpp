@@ -17,35 +17,34 @@
 #include "GuiParticles.h"
 #include "MultiPlayerLevel.h"
 #include "Chunk.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.h"
-#include "..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.player.h"
-#include "..\Minecraft.World\net.minecraft.world.phys.h"
-#include "..\Minecraft.World\net.minecraft.world.level.material.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-#include "..\Minecraft.World\net.minecraft.world.level.chunk.h"
-#include "..\Minecraft.World\net.minecraft.world.level.biome.h"
-#include "..\Minecraft.World\net.minecraft.world.level.dimension.h"
-#include "..\Minecraft.World\System.h"
-#include "..\Minecraft.World\FloatBuffer.h"
-#include "..\Minecraft.World\ThreadName.h"
-#include "..\Minecraft.World\SparseLightStorage.h"
-#include "..\Minecraft.World\CompressedTileStorage.h"
-#include "..\Minecraft.World\SparseDataStorage.h"
-#include "..\Minecraft.World\JavaMath.h"
-#include "..\Minecraft.World\Facing.h"
-#include "..\Minecraft.World\MobEffect.h"
-#include "..\Minecraft.World\IntCache.h"
-#include "..\Minecraft.World\SmoothFloat.h"
-#include "..\Minecraft.World\MobEffectInstance.h"
-#include "..\Minecraft.World\Item.h"
+#include "../Minecraft.World/net.minecraft.world.entity.h"
+#include "../Minecraft.World/net.minecraft.world.level.h"
+#include "../Minecraft.World/net.minecraft.world.entity.player.h"
+#include "../Minecraft.World/net.minecraft.world.phys.h"
+#include "../Minecraft.World/net.minecraft.world.level.material.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
+#include "../Minecraft.World/net.minecraft.world.level.chunk.h"
+#include "../Minecraft.World/net.minecraft.world.level.biome.h"
+#include "../Minecraft.World/net.minecraft.world.level.dimension.h"
+#include "../Minecraft.World/System.h"
+#include "../Minecraft.World/FloatBuffer.h"
+#include "../Minecraft.World/ThreadName.h"
+#include "../Minecraft.World/SparseLightStorage.h"
+#include "../Minecraft.World/CompressedTileStorage.h"
+#include "../Minecraft.World/SparseDataStorage.h"
+#include "../Minecraft.World/JavaMath.h"
+#include "../Minecraft.World/Facing.h"
+#include "../Minecraft.World/MobEffect.h"
+#include "../Minecraft.World/IntCache.h"
+#include "../Minecraft.World/SmoothFloat.h"
+#include "../Minecraft.World/MobEffectInstance.h"
+#include "../Minecraft.World/Item.h"
 #include "Camera.h"
-#include "..\Minecraft.World\SoundTypes.h"
+#include "../Minecraft.World/SoundTypes.h"
 #include "HumanoidModel.h"
-#include "..\Minecraft.World\Item.h"
-#include "..\Minecraft.World\compression.h"
-#include "PS3\PS3Extras\ShutdownManager.h"
-
+#include "../Minecraft.World/Item.h"
+#include "../Minecraft.World/compression.h"
+#include "PS3/PS3Extras/ShutdownManager.h"
 #include "TexturePackRepository.h"
 #include "TexturePack.h"
 
@@ -132,14 +131,23 @@ GameRenderer::GameRenderer(Minecraft *mc)
 	this->mc = mc;
 	itemInHandRenderer = NULL;
 
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] GameRenderer: creating ItemInHandRenderers...\n");
+#endif
 	// 4J-PB - set up the local players iteminhand renderers here - needs to be done with lighting enabled so that the render geometry gets compiled correctly
 	glEnable(GL_LIGHTING);
 	mc->localitemInHandRenderers[0] = new ItemInHandRenderer(mc);//itemInHandRenderer;
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] GameRenderer: ItemInHandRenderer[0] done\n");
+#endif
 	mc->localitemInHandRenderers[1] = new ItemInHandRenderer(mc);
 	mc->localitemInHandRenderers[2] = new ItemInHandRenderer(mc);
 	mc->localitemInHandRenderers[3] = new ItemInHandRenderer(mc);
 	glDisable(GL_LIGHTING);
 
+#ifdef __APPLE__
+	fprintf(stderr, "[MCE] GameRenderer: creating light textures...\n");
+#endif
 	// 4J - changes brought forward from 1.8.2
 	BufferedImage *img = new BufferedImage(16, 16, BufferedImage::TYPE_INT_RGB);
 	for( int i = 0; i < NUM_LIGHT_TEXTURES; i++ )
@@ -1185,6 +1193,16 @@ int GameRenderer::runUpdate(LPVOID lpParam)
 		}
 
 		m_updateEvents->Set(eUpdateCanRun);
+
+		// Skip update if levelRenderer hasn't been created yet (during init)
+		if (minecraft->levelRenderer == NULL)
+		{
+#ifdef __APPLE__
+			// Yield to avoid spinning while waiting for init to complete
+			usleep(10000);
+#endif
+			continue;
+		}
 
 		//		PIXBeginNamedEvent(0,"Updating dirty chunks %d",(count++)&7);
 

@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "BlazeModel.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.monster.h"
+#include "../Minecraft.World/net.minecraft.world.entity.monster.h"
 #include "BlazeRenderer.h"
 
 BlazeRenderer::BlazeRenderer() : MobRenderer(new BlazeModel(), 0.5f)

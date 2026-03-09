@@ -1,10 +1,10 @@
 #include "stdafx.h"
-#include "..\Minecraft.World\Random.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.entity.h"
+#include "../Minecraft.World/Random.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.entity.h"
 #include "Tesselator.h"
 #include "TileEntityRenderDispatcher.h"
 #include "Camera.h"
-#include "..\Minecraft.World\FloatBuffer.h"
+#include "../Minecraft.World/FloatBuffer.h"
 #include "TheEndPortalRenderer.h"
 
 void TheEndPortalRenderer::render(shared_ptr<TileEntity> _table, double x, double y, double z, float a, bool setColor, float alpha, bool useCompiled)

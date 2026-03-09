@@ -2,7 +2,7 @@
 #include "net.minecraft.world.level.h"
 #include "net.minecraft.world.h"
 #include "net.minecraft.world.item.h"
-#include "..\Minecraft.Client\Textures.h"
+#include "../Minecraft.Client/Textures.h"
 #include "LavaSlime.h"
 #include "SoundTypes.h"
 

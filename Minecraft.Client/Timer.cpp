@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "Timer.h"
-#include "..\Minecraft.World\System.h"
-
+#include "../Minecraft.World/System.h"
 Timer::Timer(float ticksPerSecond)
 {
 	// 4J - added initialisers

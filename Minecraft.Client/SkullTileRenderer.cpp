@@ -1,7 +1,7 @@
 #include "stdafx.h"
-#include "..\Minecraft.World\SkullTileEntity.h"
-#include "..\Minecraft.World\net.minecraft.world.level.tile.h"
-#include "..\Minecraft.World\net.minecraft.h"
+#include "../Minecraft.World/SkullTileEntity.h"
+#include "../Minecraft.World/net.minecraft.world.level.tile.h"
+#include "../Minecraft.World/net.minecraft.h"
 #include "SkeletonHeadModel.h"
 #include "SkullTileRenderer.h"
 

@@ -4,19 +4,15 @@
 
 #include "base64.h"
 
-#include "..\PSVita_App.h"
-#include "..\..\Common\Consoles_App.h"
-
-#include "Common\Network\Sony\SQRNetworkManager.h"
-
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-
+#include "../PSVita_App.h"
+#include "../../Common/Consoles_App.h"
+#include "Common/Network/Sony/SQRNetworkManager.h"
+#include "../../../Minecraft.World/StringHelpers.h"
 #include <cstdlib>
 
 #include <np.h>
 
-#include "PSVita\PSVitaExtras\ShutdownManager.h"
-
+#include "PSVita/PSVitaExtras/ShutdownManager.h"
 
 LeaderboardManager *LeaderboardManager::m_instance = new PSVitaLeaderboardManager(); //Singleton instance of the LeaderboardManager
 

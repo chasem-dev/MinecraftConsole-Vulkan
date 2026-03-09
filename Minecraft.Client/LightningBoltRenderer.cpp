@@ -1,8 +1,7 @@
 #include "stdafx.h"
 #include "LightningBoltRenderer.h"
 #include "Tesselator.h"
-#include "..\Minecraft.World\net.minecraft.world.entity.global.h"
-
+#include "../Minecraft.World/net.minecraft.world.entity.global.h"
 void LightningBoltRenderer::render(shared_ptr<Entity> _bolt, double x, double y, double z, float rot, float a)
 {
 	// 4J - dynamic cast required because we aren't using templates/generics in our version

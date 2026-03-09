@@ -1,7 +1,29 @@
 #include "stdafx.h"
 #include "UI.h"
 #include "UIScene_SettingsMenu.h"
-#include "..\..\Minecraft.h"
+#include "../../Minecraft.h"
+
+#if defined(__APPLE__)
+namespace
+{
+bool AppleShouldShowSettingsMenuButton(int controlId, int iPad)
+{
+	switch(controlId)
+	{
+	case BUTTON_ALL_OPTIONS:
+	case BUTTON_ALL_CONTROL:
+	case BUTTON_ALL_UI:
+	case BUTTON_ALL_RESETTODEFAULTS:
+		return true;
+	case BUTTON_ALL_AUDIO:
+	case BUTTON_ALL_GRAPHICS:
+		return ProfileManager.GetPrimaryPad() == iPad;
+	default:
+		return false;
+	}
+}
+}
+#endif
 
 UIScene_SettingsMenu::UIScene_SettingsMenu(int iPad, void *initData, UILayer *parentLayer) : UIScene(iPad, parentLayer)
 {
@@ -31,6 +53,11 @@ UIScene_SettingsMenu::UIScene_SettingsMenu(int iPad, void *initData, UILayer *pa
 		app.AdjustSplitscreenScene(m_hObj,&m_OriginalPosition,m_iPad,false);
 #endif
 	}
+
+#if defined(__APPLE__)
+	m_appleSelectedIndex = 0;
+	appleSetSelectedIndex(0);
+#endif
 }
 
 UIScene_SettingsMenu::~UIScene_SettingsMenu()
@@ -58,6 +85,10 @@ void UIScene_SettingsMenu::handleReload()
 	}
 
 	doHorizontalResizeCheck();
+
+#if defined(__APPLE__)
+	appleSetSelectedIndex(m_appleSelectedIndex);
+#endif
 }
 
 void UIScene_SettingsMenu::updateTooltips()
@@ -104,12 +135,42 @@ void UIScene_SettingsMenu::handleInput(int iPad, int key, bool repeat, bool pres
 #ifdef __ORBIS__
 	case ACTION_MENU_TOUCHPAD_PRESS:
 #endif
+#if defined(__APPLE__)
+		if(pressed)
+		{
+			extern int AppleMouse_GetHoveredControlId();
+			extern bool AppleMouse_IsOverButton();
+			int controlId = AppleMouse_IsOverButton() ? AppleMouse_GetHoveredControlId() : appleGetControlIdForVisibleButton(appleGetSelectedIndex());
+			if(controlId >= 0)
+			{
+				handlePress((F64)controlId, 0);
+			}
+		}
+		break;
+#else
 		sendInputToMovie(key, repeat, pressed, released);
 		break;
 	case ACTION_MENU_UP:
 	case ACTION_MENU_DOWN:
 		sendInputToMovie(key, repeat, pressed, released);
 		break;
+#endif
+#if defined(__APPLE__)
+	case ACTION_MENU_UP:
+		if(pressed && !repeat)
+		{
+			appleSetSelectedIndex(appleGetSelectedIndex() - 1);
+			ui.PlayUISFX(eSFX_Press);
+		}
+		break;
+	case ACTION_MENU_DOWN:
+		if(pressed && !repeat)
+		{
+			appleSetSelectedIndex(appleGetSelectedIndex() + 1);
+			ui.PlayUISFX(eSFX_Press);
+		}
+		break;
+#endif
 	}
 }
 
@@ -147,6 +208,86 @@ void UIScene_SettingsMenu::handlePress(F64 controlId, F64 childId)
 		break;
 	}
 }
+
+#if defined(__APPLE__)
+int UIScene_SettingsMenu::appleGetSelectedIndex()
+{
+	int count = appleGetVisibleButtonCount();
+	if(count <= 0)
+	{
+		return 0;
+	}
+	if(m_appleSelectedIndex < 0)
+	{
+		return 0;
+	}
+	if(m_appleSelectedIndex >= count)
+	{
+		return count - 1;
+	}
+	return m_appleSelectedIndex;
+}
+
+void UIScene_SettingsMenu::appleSetSelectedIndex(int index)
+{
+	int count = appleGetVisibleButtonCount();
+	if(count <= 0)
+	{
+		m_appleSelectedIndex = 0;
+		return;
+	}
+	if(index < 0)
+	{
+		index = 0;
+	}
+	if(index >= count)
+	{
+		index = count - 1;
+	}
+	m_appleSelectedIndex = index;
+}
+
+int UIScene_SettingsMenu::appleGetVisibleButtonCount()
+{
+	int count = 0;
+	for(int controlId = 0; controlId < BUTTONS_ALL_MAX; ++controlId)
+	{
+		if(AppleShouldShowSettingsMenuButton(controlId, m_iPad))
+		{
+			++count;
+		}
+	}
+	return count;
+}
+
+int UIScene_SettingsMenu::appleGetControlIdForVisibleButton(int index)
+{
+	int visibleIndex = 0;
+	for(int controlId = 0; controlId < BUTTONS_ALL_MAX; ++controlId)
+	{
+		if(!AppleShouldShowSettingsMenuButton(controlId, m_iPad))
+		{
+			continue;
+		}
+		if(visibleIndex == index)
+		{
+			return controlId;
+		}
+		++visibleIndex;
+	}
+	return -1;
+}
+
+const wchar_t *UIScene_SettingsMenu::appleGetLabelForVisibleButton(int index)
+{
+	int controlId = appleGetControlIdForVisibleButton(index);
+	if(controlId < 0 || controlId >= BUTTONS_ALL_MAX)
+	{
+		return L"";
+	}
+	return m_buttons[controlId].getLabel();
+}
+#endif
 
 int UIScene_SettingsMenu::ResetDefaultsDialogReturned(void *pParam,int iPad,C4JStorage::EMessageResult result)
 {

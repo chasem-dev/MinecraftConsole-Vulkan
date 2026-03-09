@@ -2,16 +2,15 @@
 #include "ServerChunkCache.h"
 #include "ServerLevel.h"
 #include "MinecraftServer.h"
-#include "..\Minecraft.World\net.minecraft.world.level.h"
-#include "..\Minecraft.World\net.minecraft.world.level.dimension.h"
-#include "..\Minecraft.World\net.minecraft.world.level.storage.h"
-#include "..\Minecraft.World\net.minecraft.world.level.chunk.h"
-#include "..\Minecraft.World\Pos.h"
-#include "..\Minecraft.World\ProgressListener.h"
-#include "..\Minecraft.World\ThreadName.h"
-#include "..\Minecraft.World\compression.h"
-#include "..\Minecraft.World\OldChunkStorage.h"
-
+#include "../Minecraft.World/net.minecraft.world.level.h"
+#include "../Minecraft.World/net.minecraft.world.level.dimension.h"
+#include "../Minecraft.World/net.minecraft.world.level.storage.h"
+#include "../Minecraft.World/net.minecraft.world.level.chunk.h"
+#include "../Minecraft.World/Pos.h"
+#include "../Minecraft.World/ProgressListener.h"
+#include "../Minecraft.World/ThreadName.h"
+#include "../Minecraft.World/compression.h"
+#include "../Minecraft.World/OldChunkStorage.h"
 ServerChunkCache::ServerChunkCache(ServerLevel *level, ChunkStorage *storage, ChunkSource *source)
 {
 	XZSIZE = source->m_XZSize; // 4J Added

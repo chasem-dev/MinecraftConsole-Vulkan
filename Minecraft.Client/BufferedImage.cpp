@@ -1,7 +1,7 @@
 #include "stdafx.h"	
-#include "..\Minecraft.World\StringHelpers.h"
+#include "../Minecraft.World/StringHelpers.h"
 #include "Textures.h"
-#include "..\Minecraft.World\ArrayWithLength.h"
+#include "../Minecraft.World/ArrayWithLength.h"
 #include "BufferedImage.h"
 
 #ifdef _XBOX
@@ -118,6 +118,15 @@ BufferedImage::BufferedImage(const wstring& File, bool filenameHasExtension /*=f
 		{
 			// Make the content package point to to the UPDATE: drive is needed
 			wDrive= L"Common\\res\\TitleUpdate\\";
+		}
+		else
+		{
+			wDrive= L"Common/";
+		}
+#elif defined __APPLE__
+		if(bTitleUpdateTexture)
+		{
+			wDrive= L"Common/res/TitleUpdate/";
 		}
 		else
 		{

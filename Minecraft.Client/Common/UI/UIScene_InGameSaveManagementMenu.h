@@ -8,7 +8,7 @@ private:
 	enum EControls
 	{
 		eControl_SavesList,
-#if defined(_XBOX_ONE) || defined(__ORBIS__)
+#if defined(_XBOX_ONE) || defined(__ORBIS__) || defined(__APPLE__)
 		eControl_SpaceIndicator,
 #endif
 	};
@@ -29,7 +29,7 @@ protected:
 	UIControl_SaveList m_buttonListSaves;
 	UIControl_Label m_labelSavesListTitle;
 	UIControl m_controlSavesTimer;
-#if defined(_XBOX_ONE) || defined(__ORBIS__)
+#if defined(_XBOX_ONE) || defined(__ORBIS__) || defined(__APPLE__)
 	UIControl_SpaceIndicatorBar m_spaceIndicatorSaves;
 #endif
 
@@ -41,7 +41,7 @@ private:
 
 		UI_MAP_ELEMENT( m_controlSavesTimer, "SavesTimer")
 
-#if defined(_XBOX_ONE) || defined(__ORBIS__)
+#if defined(_XBOX_ONE) || defined(__ORBIS__) || defined(__APPLE__)
 		UI_MAP_ELEMENT( m_spaceIndicatorSaves, "SaveSizeBar")
 #endif
 	UI_END_MAP_ELEMENTS_AND_NAMES()

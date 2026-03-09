@@ -1,5 +1,5 @@
 #pragma once
-#include "..\Minecraft.World\ArrayWithLength.h"
+#include "../Minecraft.World/ArrayWithLength.h"
 
 class DynamicTexture;
 class BufferedImage;
@@ -119,6 +119,9 @@ typedef enum _TEXTURE_NAME
 
 	TN_DEFAULT_FONT,
 	TN_ALT_FONT,
+
+	TN_GUI_BACKGROUND,
+	TN_TITLE_MCLOGO,
 
 /*	TN_SP1,
 	TN_SP2,

@@ -40,6 +40,7 @@ UIScene_SaveMessage::UIScene_SaveMessage(int iPad, void *initData, UILayer *pare
 #ifdef __PSVITA__
 	ui.TouchBoxRebuild(this);
 #endif
+
 }
 
 UIScene_SaveMessage::~UIScene_SaveMessage()
@@ -74,7 +75,20 @@ void UIScene_SaveMessage::handleInput(int iPad, int key, bool repeat, bool press
 #ifdef __ORBIS__
 	case ACTION_MENU_TOUCHPAD_PRESS:
 #endif
+#if defined(__APPLE__)
+		// Iggy is stubbed on Apple — bypass sendInputToMovie and directly confirm.
+		// For mouse clicks, only fire if the cursor is over the OK button.
+		if (pressed)
+		{
+			extern bool AppleMouse_IsOverButton();
+			extern bool AppleKeyboard_IsDown(int glfwKey);
+			bool isMouseClick = AppleKeyboard_IsDown(500);  // slot 500 = mouse left
+			if (!isMouseClick || AppleMouse_IsOverButton())
+				handlePress(eControl_Confirm, 0);
+		}
+#else
 		sendInputToMovie(key, repeat, pressed, released);
+#endif
 		break;
 		// #ifdef __PS3__
 		// 	case ACTION_MENU_Y:

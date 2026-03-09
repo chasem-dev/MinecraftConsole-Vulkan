@@ -10,9 +10,8 @@
 #include "NormalDimension.h"
 #include "TheEndDimension.h"
 #include "net.minecraft.world.level.tile.h"
-#include "..\Minecraft.Client\Minecraft.h"
-#include "..\Minecraft.Client\Common\Colours\ColourTable.h"
-
+#include "../Minecraft.Client/Minecraft.h"
+#include "../Minecraft.Client/Common/Colours/ColourTable.h"
 void Dimension::init(Level *level)
 {
     this->level = level;

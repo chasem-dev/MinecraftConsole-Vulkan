@@ -4,11 +4,10 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <map>
-#include "..\..\Common\Network\P2PConnectionManager.h"
-#include "..\..\Common\Network\NATTraversal.h"
-#include "..\..\Common\Network\STUNClient.h"
-#include "..\..\..\Minecraft.World\C4JThread.h"
-
+#include "../../Common/Network/P2PConnectionManager.h"
+#include "../../Common/Network/NATTraversal.h"
+#include "../../Common/Network/STUNClient.h"
+#include "../../../Minecraft.World/C4JThread.h"
 // Max peers we can handle simultaneously
 #define P2P_MAX_PEERS 8
 

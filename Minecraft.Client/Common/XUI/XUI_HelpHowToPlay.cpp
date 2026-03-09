@@ -1,9 +1,8 @@
 #include "stdafx.h"
 
 #include <assert.h>
-#include "..\XUI\XUI_HelpHowToPlay.h"
-#include "..\..\..\Minecraft.World\StringHelpers.h"
-
+#include "../XUI/XUI_HelpHowToPlay.h"
+#include "../../../Minecraft.World/StringHelpers.h"
 static SHowToPlayPageDef gs_aPageDefs[ eHowToPlay_NumPages ] =
 {
 	{ eHowToPlay_WhatsNew,			IDS_HOW_TO_PLAY_WHATSNEW,		eHowToPlay_ImageNone,				0,									0},			// eHowToPlay_WhatsNew
