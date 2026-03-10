@@ -52,9 +52,333 @@ char *SoundEngine::ConvertSoundPathToName(const wstring& name, bool bConvertSpac
 bool SoundEngine::isStreamingWavebankReady() { return true; }
 void SoundEngine::playMusicTick() {};
 
+#elif defined __APPLE__
+
+// ==========================================================================
+// Apple/macOS audio implementation using miniaudio (via AppleAudio backend)
+// ==========================================================================
+#include "../../Apple/AppleAudio.h"
+
+char SoundEngine::m_szSoundPath[]={"Sound/"};
+char SoundEngine::m_szMusicPath[]={"music/"};
+char SoundEngine::m_szRedistName[]={"redist64"};
+
+char *SoundEngine::m_szStreamFileA[eStream_Max]=
+{
+	"calm1","calm2","calm3","hal1","hal2","hal3","hal4","nuance1","nuance2",
+	"creative1","creative2","creative3","creative4","creative5","creative6",
+	"menu1","menu2","menu3","menu4",
+	"piano1","piano2","piano3",
+	"nether1","nether2","nether3","nether4",
+	"the_end_dragon_alive","the_end_end",
+	"11","13","blocks","cat","chirp","far","mall","mellohi","stal","strad","ward","where_are_we_now"
+};
+
+SoundEngine::SoundEngine()
+{
+	random = new Random();
+	m_hStream=0;
+	m_StreamState=eMusicStreamState_Idle;
+	m_iMusicDelay=0;
+	m_validListenerCount=0;
+	m_bHeardTrackA=NULL;
+	m_openStreamThread=NULL;
+
+	SetStreamingSounds(eStream_Overworld_Calm1,eStream_Overworld_piano3,
+		eStream_Nether1,eStream_Nether4,
+		eStream_end_dragon,eStream_end_end,
+		eStream_CD_1);
+
+	m_musicID=getMusicID(LevelData::DIMENSION_OVERWORLD);
+	m_StreamingAudioInfo.bIs3D=false;
+	m_StreamingAudioInfo.x=0; m_StreamingAudioInfo.y=0; m_StreamingAudioInfo.z=0;
+	m_StreamingAudioInfo.volume=1; m_StreamingAudioInfo.pitch=1;
+	memset(CurrentSoundsPlaying,0,sizeof(int)*(eSoundType_MAX+eSFX_MAX));
+	memset(m_ListenerA,0,sizeof(AUDIO_LISTENER)*XUSER_MAX_COUNT);
+}
+
+void SoundEngine::destroy()
+{
+	AppleAudio_Shutdown();
+}
+
+void SoundEngine::init(Options *pOptions)
+{
+	app.DebugPrintf("---SoundEngine::init (Apple/miniaudio)\n");
+	AppleAudio_Init();
+	m_MasterMusicVolume=1.0f;
+	m_MasterEffectsVolume=1.0f;
+	m_bSystemMusicPlaying=false;
+	// Apply default volumes to the audio backend
+	AppleAudio_SetMusicVolume(1.0f);
+	AppleAudio_SetEffectsVolume(1.0f);
+}
+
+void SoundEngine::play(int iSound, float x, float y, float z, float volume, float pitch)
+{
+	if(iSound==-1) return;
+	wstring name = wchSoundNames[iSound];
+	char *SoundName = ConvertSoundPathToName(name);
+	if(SoundName)
+		AppleAudio_PlaySound(SoundName, x, y, z, volume*m_MasterEffectsVolume, pitch, true);
+}
+
+void SoundEngine::playUI(int iSound, float volume, float pitch)
+{
+	wstring name;
+	if(iSound>=eSFX_MAX)
+		name = wchSoundNames[iSound];
+	else
+		name = wchUISoundNames[iSound];
+	char nameBuf[64];
+	wcstombs(nameBuf, name.c_str(), 64);
+	AppleAudio_PlayUISound(nameBuf, volume*m_MasterEffectsVolume, pitch);
+}
+
+void SoundEngine::playStreaming(const wstring& name, float x, float y , float z, float volume, float pitch, bool bMusicDelay)
+{
+	m_StreamingAudioInfo.x=x; m_StreamingAudioInfo.y=y; m_StreamingAudioInfo.z=z;
+	m_StreamingAudioInfo.volume=volume; m_StreamingAudioInfo.pitch=pitch;
+
+	if(m_StreamState==eMusicStreamState_Playing)
+		m_StreamState=eMusicStreamState_Stop;
+
+	if(name.empty())
+	{
+		m_StreamingAudioInfo.bIs3D=false;
+		m_iMusicDelay = random->nextInt(20 * 60 * 3);
+		Minecraft *pMinecraft=Minecraft::GetInstance();
+		bool playerInEnd=false, playerInNether=false;
+		for(unsigned int i=0;i<MAX_LOCAL_PLAYERS;i++)
+		{
+			if(pMinecraft->localplayers[i]!=NULL)
+			{
+				if(pMinecraft->localplayers[i]->dimension==LevelData::DIMENSION_END) playerInEnd=true;
+				else if(pMinecraft->localplayers[i]->dimension==LevelData::DIMENSION_NETHER) playerInNether=true;
+			}
+		}
+		if(playerInEnd) m_musicID = getMusicID(LevelData::DIMENSION_END);
+		else if(playerInNether) m_musicID = getMusicID(LevelData::DIMENSION_NETHER);
+		else m_musicID = getMusicID(LevelData::DIMENSION_OVERWORLD);
+	}
+	else
+	{
+		m_StreamingAudioInfo.bIs3D=true;
+		m_musicID=getMusicID(name);
+		m_iMusicDelay=0;
+	}
+}
+
+void SoundEngine::tick(shared_ptr<Mob> *players, float a)
+{
+	int listenerCount = 0;
+	if(players)
+	{
+		for(int i = 0; i < MAX_LOCAL_PLAYERS; i++)
+		{
+			if(players[i] != NULL)
+			{
+				m_ListenerA[i].bValid=true;
+				F32 lx=players[i]->xo + (players[i]->x - players[i]->xo) * a;
+				F32 ly=players[i]->yo + (players[i]->y - players[i]->yo) * a;
+				F32 lz=players[i]->zo + (players[i]->z - players[i]->zo) * a;
+				float yRot = players[i]->yRotO + (players[i]->yRot - players[i]->yRotO) * a;
+				float yCos = (float)cos(-yRot * Mth::RAD_TO_GRAD - PI);
+				float ySin = (float)sin(-yRot * Mth::RAD_TO_GRAD - PI);
+				m_ListenerA[i].vPosition.x = lx;
+				m_ListenerA[i].vPosition.y = ly;
+				m_ListenerA[i].vPosition.z = lz;
+				m_ListenerA[i].vOrientFront.x = ySin;
+				m_ListenerA[i].vOrientFront.y = 0;
+				m_ListenerA[i].vOrientFront.z = yCos;
+				listenerCount++;
+			}
+			else m_ListenerA[i].bValid=false;
+		}
+	}
+	if(listenerCount == 0)
+	{
+		m_ListenerA[0].vPosition.x=0; m_ListenerA[0].vPosition.y=0; m_ListenerA[0].vPosition.z=0;
+		m_ListenerA[0].vOrientFront.x=0; m_ListenerA[0].vOrientFront.y=0; m_ListenerA[0].vOrientFront.z=1.0f;
+		listenerCount++;
+	}
+	m_validListenerCount = listenerCount;
+
+	for(int i=0;i<MAX_LOCAL_PLAYERS;i++)
+	{
+		if(m_ListenerA[i].bValid)
+		{
+			AppleAudio_SetListenerPosition(
+				m_ListenerA[i].vPosition.x, m_ListenerA[i].vPosition.y, m_ListenerA[i].vPosition.z,
+				m_ListenerA[i].vOrientFront.x, m_ListenerA[i].vOrientFront.y, m_ListenerA[i].vOrientFront.z);
+			break;
+		}
+	}
+}
+
+void SoundEngine::updateMusicVolume(float fVal) { m_MasterMusicVolume=fVal; AppleAudio_SetMusicVolume(getMasterMusicVolume()); }
+void SoundEngine::updateSystemMusicPlaying(bool isPlaying) { m_bSystemMusicPlaying = isPlaying; }
+void SoundEngine::updateSoundEffectVolume(float fVal) { m_MasterEffectsVolume=fVal; AppleAudio_SetEffectsVolume(fVal); }
+
+void SoundEngine::add(const wstring& name, File *file) {}
+void SoundEngine::addMusic(const wstring& name, File *file) {}
+void SoundEngine::addStreaming(const wstring& name, File *file) {}
+bool SoundEngine::isStreamingWavebankReady() { return true; }
+void SoundEngine::updateMiles() {}
+
+int SoundEngine::OpenStreamThreadProc(void* lpParameter) { return 0; }
+
+void SoundEngine::SetStreamingSounds(int iOverworldMin, int iOverWorldMax, int iNetherMin, int iNetherMax, int iEndMin, int iEndMax, int iCD1)
+{
+	m_iStream_Overworld_Min=iOverworldMin; m_iStream_Overworld_Max=iOverWorldMax;
+	m_iStream_Nether_Min=iNetherMin; m_iStream_Nether_Max=iNetherMax;
+	m_iStream_End_Min=iEndMin; m_iStream_End_Max=iEndMax;
+	m_iStream_CD_1=iCD1;
+	if(m_bHeardTrackA) delete [] m_bHeardTrackA;
+	m_bHeardTrackA = new bool[iEndMax+1];
+	memset(m_bHeardTrackA,0,sizeof(bool)*iEndMax+1);
+}
+
+int SoundEngine::GetRandomishTrack(int iStart,int iEnd)
+{
+	bool bAllTracksHeard=true;
+	int iVal=iStart;
+	for(int i=iStart;i<=iEnd;i++) { if(!m_bHeardTrackA[i]) { bAllTracksHeard=false; break; } }
+	if(bAllTracksHeard) { for(int i=iStart;i<=iEnd;i++) m_bHeardTrackA[i]=false; }
+	for(int i=0;i<=((iEnd-iStart)/2);i++)
+	{
+		iVal=random->nextInt((iEnd-iStart)+1)+iStart;
+		if(!m_bHeardTrackA[iVal]) { m_bHeardTrackA[iVal]=true; break; }
+	}
+	return iVal;
+}
+
+int SoundEngine::getMusicID(int iDomain)
+{
+	Minecraft *pMinecraft=Minecraft::GetInstance();
+	if(pMinecraft==NULL) return GetRandomishTrack(m_iStream_Overworld_Min,m_iStream_Overworld_Max);
+	switch(iDomain)
+	{
+	case LevelData::DIMENSION_END: return m_iStream_End_Min;
+	case LevelData::DIMENSION_NETHER: return GetRandomishTrack(m_iStream_Nether_Min,m_iStream_Nether_Max);
+	default: return GetRandomishTrack(m_iStream_Overworld_Min,m_iStream_Overworld_Max);
+	}
+}
+
+int SoundEngine::getMusicID(const wstring& name)
+{
+	char *SoundName = ConvertSoundPathToName(name,true);
+	for(int i=0;i<12;i++)
+		if(strcmp(SoundName,m_szStreamFileA[i+eStream_CD_1])==0) return i+m_iStream_CD_1;
+	return m_iStream_CD_1;
+}
+
+float SoundEngine::getMasterMusicVolume()
+{
+	return m_bSystemMusicPlaying ? 0.0f : m_MasterMusicVolume;
+}
+
+void SoundEngine::playMusicTick() { playMusicUpdate(); }
+
+void SoundEngine::playMusicUpdate()
+{
+	switch(m_StreamState)
+	{
+	case eMusicStreamState_Idle:
+		if(m_iMusicDelay > 0) { m_iMusicDelay--; return; }
+		if(m_musicID!=-1)
+		{
+			strcpy(m_szStreamName,m_szMusicPath);
+			if(m_musicID<m_iStream_CD_1)
+			{
+				SetIsPlayingStreamingGameMusic(true);
+				SetIsPlayingStreamingCDMusic(false);
+				m_MusicType=eMusicType_Game;
+				m_StreamingAudioInfo.bIs3D=false;
+				strcat(m_szStreamName,"music/");
+			}
+			else
+			{
+				SetIsPlayingStreamingGameMusic(false);
+				SetIsPlayingStreamingCDMusic(true);
+				m_MusicType=eMusicType_CD;
+				m_StreamingAudioInfo.bIs3D=true;
+				strcat(m_szStreamName,"cds/");
+			}
+			strcat(m_szStreamName,m_szStreamFileA[m_musicID]);
+			strcat(m_szStreamName,".binka");
+			app.DebugPrintf("Starting streaming - %s\n",m_szStreamName);
+
+			AppleAudio_SetMusicVolume(m_StreamingAudioInfo.volume*getMasterMusicVolume());
+			if(AppleAudio_StartMusic(m_szStreamName))
+				m_StreamState = eMusicStreamState_Playing;
+			else
+			{
+				// File not found — pick a new track after a long delay to avoid spam
+				m_StreamState = eMusicStreamState_Idle;
+				m_iMusicDelay = 20 * 60 * 5; // ~5 minutes
+				m_musicID = getMusicID(LevelData::DIMENSION_OVERWORLD);
+			}
+		}
+		break;
+	case eMusicStreamState_Stop:
+		AppleAudio_StopMusic();
+		SetIsPlayingStreamingCDMusic(false);
+		SetIsPlayingStreamingGameMusic(false);
+		m_StreamState=eMusicStreamState_Idle;
+		break;
+	case eMusicStreamState_Playing:
+		if(!AppleAudio_IsMusicPlaying())
+		{
+			// Track finished
+			SetIsPlayingStreamingCDMusic(false);
+			SetIsPlayingStreamingGameMusic(false);
+			m_StreamState=eMusicStreamState_Idle;
+			// Queue next track
+			m_iMusicDelay = random->nextInt(20 * 60 * 3);
+			Minecraft *pMinecraft=Minecraft::GetInstance();
+			if(pMinecraft)
+			{
+				bool playerInEnd=false, playerInNether=false;
+				for(unsigned int i=0;i<MAX_LOCAL_PLAYERS;i++)
+				{
+					if(pMinecraft->localplayers[i]!=NULL)
+					{
+						if(pMinecraft->localplayers[i]->dimension==LevelData::DIMENSION_END) playerInEnd=true;
+						else if(pMinecraft->localplayers[i]->dimension==LevelData::DIMENSION_NETHER) playerInNether=true;
+					}
+				}
+				if(playerInEnd) m_musicID=getMusicID(LevelData::DIMENSION_END);
+				else if(playerInNether) m_musicID=getMusicID(LevelData::DIMENSION_NETHER);
+				else m_musicID=getMusicID(LevelData::DIMENSION_OVERWORLD);
+			}
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+char *SoundEngine::ConvertSoundPathToName(const wstring& name, bool bConvertSpaces)
+{
+	static char buf[256];
+	for(unsigned int i = 0; i < name.length() && i < 255; i++)
+	{
+		wchar_t c = name[i];
+		if(c=='.') c='/';
+		if(bConvertSpaces && c==' ') c='_';
+		buf[i] = (char)c;
+	}
+	buf[name.length()] = 0;
+	return buf;
+}
+
 #else
 
-#ifdef __APPLE__
+// ==========================================================================
+// Miles Sound System implementation (Durango, PS3, PS4, Vita, Windows64)
+// ==========================================================================
+#if 0 // __APPLE__ now handled above
 char SoundEngine::m_szSoundPath[]={"Sound/"};
 char SoundEngine::m_szMusicPath[]={"music/"};
 char SoundEngine::m_szRedistName[]={"redist64"};

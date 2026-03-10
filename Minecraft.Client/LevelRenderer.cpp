@@ -174,18 +174,22 @@ LevelRenderer::LevelRenderer(Minecraft *mc, Textures *textures)
 	int s = 64;
 	int d = (256 / s) + 2;
 	yy = (float) (16);
+	// MCE: Batch all sky quads into a single draw call. Previously each quad
+	// was a separate begin/end, creating 169 recorded draw commands that each
+	// required a mutex lock + MVP multiply + per-vertex color modulation on
+	// replay.  Single batch: 1 replay instead of 169.
+	t->begin();
 	for (int xx = -s * d; xx <= s * d; xx += s)
 	{
 		for (int zz = -s * d; zz <= s * d; zz += s)
 		{
-			t->begin();
 			t->vertex((float)(xx + 0), (float)( yy), (float)( zz + 0));
 			t->vertex((float)(xx + s), (float)( yy), (float)( zz + 0));
 			t->vertex((float)(xx + s), (float)( yy), (float)( zz + s));
 			t->vertex((float)(xx + 0), (float)( yy), (float)( zz + s));
-			t->end();
 		}
 	}
+	t->end();
 	glEndList();
 
 	darkList = starList + 2;
@@ -519,28 +523,31 @@ void LevelRenderer::renderEntities(Vec3 *cam, Culler *culler, float a)
 
 	mc->gameRenderer->turnOnLightLayer(a);		// 4J - brought forward from 1.8.2
 
-	vector<shared_ptr<Entity> > entities = level[playerIndex]->getAllEntities();
+	// Lock entities and iterate by const reference — avoids copying the entire
+	// shared_ptr vector (hundreds of refcount bumps) every frame.
+	level[playerIndex]->lockEntities();
+	const vector<shared_ptr<Entity> > &entities = level[playerIndex]->getEntitiesRef();
 	totalEntities = (int)entities.size();
 
 	AUTO_VAR(itEndGE, level[playerIndex]->globalEntities.end());
 	for (AUTO_VAR(it, level[playerIndex]->globalEntities.begin()); it != itEndGE; it++)
 	{
-		shared_ptr<Entity> entity = *it; //level->globalEntities[i];
+		const shared_ptr<Entity> &entity = *it;
 		renderedEntities++;
 		if (entity->shouldRender(cam)) EntityRenderDispatcher::instance->render(entity, a);
 	}
 
+	// Hoist the dynamic_pointer_cast outside the loop — same result every iteration.
+	shared_ptr<LocalPlayer> localplayer = dynamic_pointer_cast<LocalPlayer>(mc->cameraTargetPlayer);
+
 	AUTO_VAR(itEndEnts, entities.end());
 	for (AUTO_VAR(it, entities.begin()); it != itEndEnts; it++)
 	{
-		shared_ptr<Entity> entity = *it; //entities[i];
+		const shared_ptr<Entity> &entity = *it;
 
 		if ((entity->shouldRender(cam) && (entity->noCulling || culler->isVisible(entity->bb))))
 		{
 			// 4J-PB - changing this to be per player
-			//if (entity == mc->cameraTargetPlayer && !mc->options->thirdPersonView && !mc->cameraTargetPlayer->isSleeping()) continue;
-			shared_ptr<LocalPlayer> localplayer = dynamic_pointer_cast<LocalPlayer>(mc->cameraTargetPlayer);
-
 			if (localplayer && entity == mc->cameraTargetPlayer && !localplayer->ThirdPersonView() && !mc->cameraTargetPlayer->isSleeping()) continue;
 
 			if (!level[playerIndex]->hasChunkAt(Mth::floor(entity->x), 0, Mth::floor(entity->z)))
@@ -551,6 +558,7 @@ void LevelRenderer::renderEntities(Vec3 *cam, Culler *culler, float a)
 			EntityRenderDispatcher::instance->render(entity, a);
 		}
 	}
+	level[playerIndex]->unlockEntities();
 
 	Lighting::turnOn();
 	// 4J - have restructed this so that the tile entities are stored within a hashmap by chunk/dimension index. The index
@@ -943,23 +951,42 @@ void LevelRenderer::renderSky(float alpha)
 		textures->bind(textures->loadTexture(TN_MISC_TUNNEL)); // 4J was L"/1_2_2/misc/tunnel.png"
 		Tesselator *t = Tesselator::getInstance();
 		t->setMipmapEnable(false);
-		for (int i = 0; i < 6; i++)
-		{
-			glPushMatrix();
-			if (i == 1) glRotatef(90, 1, 0, 0);
-			if (i == 2) glRotatef(-90, 1, 0, 0);
-			if (i == 3) glRotatef(180, 1, 0, 0);
-			if (i == 4) glRotatef(90, 0, 0, 1);
-			if (i == 5) glRotatef(-90, 0, 0, 1);
-			t->begin();
-			t->color(0x282828);
-			t->vertexUV(-100, -100, -100, 0, 0);
-			t->vertexUV(-100, -100, +100, 0, 16);
-			t->vertexUV(+100, -100, +100, 16, 16);
-			t->vertexUV(+100, -100, -100, 16, 0);
-			t->end();
-			glPopMatrix();
-		}
+		// MCE: Batch all 6 cube faces into a single draw call instead of 6
+		// separate begin/end with push/pop matrix per face.  Manually compute
+		// rotated vertex positions.
+		t->begin();
+		t->color(0x282828);
+		// Face 0: no rotation (bottom -Y)
+		t->vertexUV(-100, -100, -100, 0, 0);
+		t->vertexUV(-100, -100, +100, 0, 16);
+		t->vertexUV(+100, -100, +100, 16, 16);
+		t->vertexUV(+100, -100, -100, 16, 0);
+		// Face 1: rotate 90 around X (front +Z)
+		t->vertexUV(-100, -100, +100, 0, 0);
+		t->vertexUV(-100, +100, +100, 0, 16);
+		t->vertexUV(+100, +100, +100, 16, 16);
+		t->vertexUV(+100, -100, +100, 16, 0);
+		// Face 2: rotate -90 around X (back -Z)
+		t->vertexUV(-100, +100, -100, 0, 0);
+		t->vertexUV(-100, -100, -100, 0, 16);
+		t->vertexUV(+100, -100, -100, 16, 16);
+		t->vertexUV(+100, +100, -100, 16, 0);
+		// Face 3: rotate 180 around X (top +Y)
+		t->vertexUV(-100, +100, +100, 0, 0);
+		t->vertexUV(-100, +100, -100, 0, 16);
+		t->vertexUV(+100, +100, -100, 16, 16);
+		t->vertexUV(+100, +100, +100, 16, 0);
+		// Face 4: rotate 90 around Z (left -X)
+		t->vertexUV(-100, +100, -100, 0, 0);
+		t->vertexUV(-100, +100, +100, 0, 16);
+		t->vertexUV(-100, -100, +100, 16, 16);
+		t->vertexUV(-100, -100, -100, 16, 0);
+		// Face 5: rotate -90 around Z (right +X)
+		t->vertexUV(+100, -100, -100, 0, 0);
+		t->vertexUV(+100, -100, +100, 0, 16);
+		t->vertexUV(+100, +100, +100, 16, 16);
+		t->vertexUV(+100, +100, -100, 16, 0);
+		t->end();
 		t->setMipmapEnable(true);
 		glDepthMask(true);
 		glEnable(GL_TEXTURE_2D);
@@ -1344,13 +1371,19 @@ void LevelRenderer::createCloudMesh()
 	const float h = 4.0f;
 	const int D = 8;
 
+	// Cloud mesh lists 0-5: individual faces (used by noBFC mode in renderAdvancedClouds).
+	// Cloud mesh list 6: all 6 faces combined into a single draw call.
 	for( int i = 0; i < 7; i++ )
 	{
 		glNewList(cloudList + i, GL_COMPILE);
 
+		// For the combined list (i==6), merge all faces into one begin/end
+		// to create a single RecordedDrawCommand instead of 6.
+		if( i == 6 ) t->begin();
+
 		if( ( i == 0 ) || ( i == 6 ) )
 		{
-			t->begin();
+			if( i != 6 ) t->begin();
 			for( int zt = 0; zt < D; zt++ )
 			{
 				for( int xt = 0; xt < D; xt++ )
@@ -1359,23 +1392,21 @@ void LevelRenderer::createCloudMesh()
 					float v = (((float) zt ) + 0.5f ) / 256.0f;
 					float x0 = (float)xt;
 					float x1 = x0 + 1.0f;
-					float y0 = 0;
-					float y1 = h;
 					float z0 = (float)zt;
 					float z1 = z0 + 1.0f;
 					t->color(0.7f, 0.7f, 0.7f, 0.8f);
 					t->normal(0, -1, 0);
-					t->vertexUV(x0, y0, z0, u, v );
-					t->vertexUV(x1, y0, z0, u, v );
-					t->vertexUV(x1, y0, z1, u, v );
-					t->vertexUV(x0, y0, z1, u, v );				
+					t->vertexUV(x0, 0, z0, u, v );
+					t->vertexUV(x1, 0, z0, u, v );
+					t->vertexUV(x1, 0, z1, u, v );
+					t->vertexUV(x0, 0, z1, u, v );
 				}
 			}
-			t->end();
+			if( i != 6 ) t->end();
 		}
 		if( ( i == 1 ) || ( i == 6 ) )
 		{
-			t->begin();
+			if( i != 6 ) t->begin();
 			for( int zt = 0; zt < D; zt++ )
 			{
 				for( int xt = 0; xt < D; xt++ )
@@ -1384,23 +1415,21 @@ void LevelRenderer::createCloudMesh()
 					float v = (((float) zt ) + 0.5f ) / 256.0f;
 					float x0 = (float)xt;
 					float x1 = x0 + 1.0f;
-					float y0 = 0;
-					float y1 = h;
 					float z0 = (float)zt;
 					float z1 = z0 + 1.0f;
 					t->color(1.0f, 1.0f, 1.0f, 0.8f);
 					t->normal(0, 1, 0);
-					t->vertexUV(x0, y1, z1, u, v );
-					t->vertexUV(x1, y1, z1, u, v );
-					t->vertexUV(x1, y1, z0, u, v );
-					t->vertexUV(x0, y1, z0, u, v );
+					t->vertexUV(x0, h, z1, u, v );
+					t->vertexUV(x1, h, z1, u, v );
+					t->vertexUV(x1, h, z0, u, v );
+					t->vertexUV(x0, h, z0, u, v );
 				}
 			}
-			t->end();
+			if( i != 6 ) t->end();
 		}
 		if( ( i == 2 ) || ( i == 6 ) )
 		{
-			t->begin();
+			if( i != 6 ) t->begin();
 			for( int zt = 0; zt < D; zt++ )
 			{
 				for( int xt = 0; xt < D; xt++ )
@@ -1409,23 +1438,21 @@ void LevelRenderer::createCloudMesh()
 					float v = (((float) zt ) + 0.5f ) / 256.0f;
 					float x0 = (float)xt;
 					float x1 = x0 + 1.0f;
-					float y0 = 0;
-					float y1 = h;
 					float z0 = (float)zt;
 					float z1 = z0 + 1.0f;
 					t->color(0.9f, 0.9f, 0.9f, 0.8f);
 					t->normal(-1, 0, 0);
-					t->vertexUV(x0, y0, z1, u, v );
-					t->vertexUV(x0, y1, z1, u, v );
-					t->vertexUV(x0, y1, z0, u, v );
-					t->vertexUV(x0, y0, z0, u, v );
+					t->vertexUV(x0, 0, z1, u, v );
+					t->vertexUV(x0, h, z1, u, v );
+					t->vertexUV(x0, h, z0, u, v );
+					t->vertexUV(x0, 0, z0, u, v );
 				}
 			}
-			t->end();
+			if( i != 6 ) t->end();
 		}
 		if( ( i == 3 ) || ( i == 6 ) )
 		{
-			t->begin();
+			if( i != 6 ) t->begin();
 			for( int zt = 0; zt < D; zt++ )
 			{
 				for( int xt = 0; xt < D; xt++ )
@@ -1434,23 +1461,21 @@ void LevelRenderer::createCloudMesh()
 					float v = (((float) zt ) + 0.5f ) / 256.0f;
 					float x0 = (float)xt;
 					float x1 = x0 + 1.0f;
-					float y0 = 0;
-					float y1 = h;
 					float z0 = (float)zt;
 					float z1 = z0 + 1.0f;
 					t->color(0.9f, 0.9f, 0.9f, 0.8f);
 					t->normal(1, 0, 0);
-					t->vertexUV(x1, y0, z0, u, v );
-					t->vertexUV(x1, y1, z0, u, v );
-					t->vertexUV(x1, y1, z1, u, v );
-					t->vertexUV(x1, y0, z1, u, v );
+					t->vertexUV(x1, 0, z0, u, v );
+					t->vertexUV(x1, h, z0, u, v );
+					t->vertexUV(x1, h, z1, u, v );
+					t->vertexUV(x1, 0, z1, u, v );
 				}
 			}
-			t->end();
+			if( i != 6 ) t->end();
 		}
 		if( ( i == 4 ) || ( i == 6 ) )
 		{
-			t->begin();
+			if( i != 6 ) t->begin();
 			for( int zt = 0; zt < D; zt++ )
 			{
 				for( int xt = 0; xt < D; xt++ )
@@ -1459,23 +1484,21 @@ void LevelRenderer::createCloudMesh()
 					float v = (((float) zt ) + 0.5f ) / 256.0f;
 					float x0 = (float)xt;
 					float x1 = x0 + 1.0f;
-					float y0 = 0;
-					float y1 = h;
 					float z0 = (float)zt;
 					float z1 = z0 + 1.0f;
 					t->color(0.8f, 0.8f, 0.8f, 0.8f);
 					t->normal(-1, 0, 0);
-					t->vertexUV(x0, y1, z0, u, v );
-					t->vertexUV(x1, y1, z0, u, v );
-					t->vertexUV(x1, y0, z0, u, v );
-					t->vertexUV(x0, y0, z0, u, v );								
+					t->vertexUV(x0, h, z0, u, v );
+					t->vertexUV(x1, h, z0, u, v );
+					t->vertexUV(x1, 0, z0, u, v );
+					t->vertexUV(x0, 0, z0, u, v );
 				}
 			}
-			t->end();
+			if( i != 6 ) t->end();
 		}
 		if( ( i == 5 ) || ( i == 6 ) )
 		{
-			t->begin();
+			if( i != 6 ) t->begin();
 			for( int zt = 0; zt < D; zt++ )
 			{
 				for( int xt = 0; xt < D; xt++ )
@@ -1484,20 +1507,20 @@ void LevelRenderer::createCloudMesh()
 					float v = (((float) zt ) + 0.5f ) / 256.0f;
 					float x0 = (float)xt;
 					float x1 = x0 + 1.0f;
-					float y0 = 0;
-					float y1 = h;
 					float z0 = (float)zt;
 					float z1 = z0 + 1.0f;
 					t->color(0.8f, 0.8f, 0.8f, 0.8f);
 					t->normal(1, 0, 0);
-					t->vertexUV(x0, y0, z1, u, v );		
-					t->vertexUV(x1, y0, z1, u, v );
-					t->vertexUV(x1, y1, z1, u, v );
-					t->vertexUV(x0, y1, z1, u, v );								
+					t->vertexUV(x0, 0, z1, u, v );
+					t->vertexUV(x1, 0, z1, u, v );
+					t->vertexUV(x1, h, z1, u, v );
+					t->vertexUV(x0, h, z1, u, v );
 				}
 			}
-			t->end();
+			if( i != 6 ) t->end();
 		}
+
+		if( i == 6 ) t->end();
 		glEndList();
 	}
 }

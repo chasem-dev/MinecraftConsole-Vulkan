@@ -6,6 +6,7 @@
 #include <cstring>
 #include <fstream>
 #include <limits>
+#include <chrono>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -232,6 +233,7 @@ void VulkanBootstrapApp::createSwapchain()
 
   swapchainImageFormat_ = surfaceFormat.format;
   swapchainExtent_ = extent;
+  activePresentMode_ = presentMode;
   logSwapchainSelection(surfaceFormat, presentMode, extent);
 }
 
@@ -817,15 +819,19 @@ void VulkanBootstrapApp::createFallbackTexture()
 
 void VulkanBootstrapApp::drawFrame()
 {
+  auto frameStart = std::chrono::high_resolution_clock::now();
+
   std::vector<Vertex> frameVertices;
   std::vector<DrawBatch> frameBatches;
   {
     std::lock_guard<std::mutex> lock(frameDataMutex_);
-    frameVertices = frameVertices_;
-    frameBatches = frameBatches_;
+    frameVertices = std::move(frameVertices_);
+    frameBatches = std::move(frameBatches_);
   }
 
+  auto fenceStart = std::chrono::high_resolution_clock::now();
   vkWaitForFences(device_, 1, &inFlightFence_, VK_TRUE, std::numeric_limits<uint64_t>::max());
+  auto fenceEnd = std::chrono::high_resolution_clock::now();
 
   uint32_t imageIndex = 0;
   VkResult result = vkAcquireNextImageKHR(
@@ -896,6 +902,29 @@ void VulkanBootstrapApp::drawFrame()
   {
     throw std::runtime_error("vkQueuePresentKHR failed");
   }
+
+  auto frameEnd = std::chrono::high_resolution_clock::now();
+  frameStats_.drawFrameMs = std::chrono::duration<double, std::milli>(frameEnd - frameStart).count();
+  frameStats_.fenceWaitMs = std::chrono::duration<double, std::milli>(fenceEnd - fenceStart).count();
+  frameStats_.vertexCount = static_cast<uint32_t>(frameVertices.size());
+  frameStats_.batchCount = static_cast<uint32_t>(frameBatches.size());
+
+  uint32_t texCount = 0;
+  for (uint32_t i = 0; i < kMaxTextures; ++i)
+  {
+    if (textureSlots_[i].allocated)
+      ++texCount;
+  }
+  frameStats_.textureCount = texCount;
+  frameStats_.swapchainImageCount = static_cast<uint32_t>(swapchainImages_.size());
+  frameStats_.presentModeName =
+    activePresentMode_ == VK_PRESENT_MODE_MAILBOX_KHR ? "MAILBOX" :
+    activePresentMode_ == VK_PRESENT_MODE_FIFO_KHR ? "FIFO (vsync)" :
+    activePresentMode_ == VK_PRESENT_MODE_IMMEDIATE_KHR ? "IMMEDIATE" :
+    activePresentMode_ == VK_PRESENT_MODE_FIFO_RELAXED_KHR ? "FIFO_RELAXED" : "unknown";
+
+  prevFrameVertexCount_ = frameVertices.size();
+  prevFrameBatchCount_ = frameBatches.size();
 }
 
 void VulkanBootstrapApp::recordCommandBuffer(

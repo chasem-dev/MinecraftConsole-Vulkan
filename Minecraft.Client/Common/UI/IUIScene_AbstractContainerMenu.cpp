@@ -1384,6 +1384,10 @@ bool IUIScene_AbstractContainerMenu::handleKeyDown(int iPad, int iAction, bool b
 		}
 		break;
 		// 4J Stu - Also enable start to exit the scene. This key is also not constrained by the tutorials.
+#if defined(__APPLE__)
+	case ACTION_MENU_RIGHT_SCROLL:
+		// Apple: E key (mapped to RIGHT_SCROLL) toggles inventory closed
+#endif
 	case ACTION_MENU_PAUSEMENU:
 	case ACTION_MENU_B:
 		{

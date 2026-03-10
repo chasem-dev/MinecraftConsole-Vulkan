@@ -80,10 +80,26 @@ public:
     size_t count,
     ShaderVariant variant,
     const float mvp[16],
-    const RenderState &state);
+    const RenderState &state,
+    const float *colorModulation = nullptr);
   void requestClear(uint32_t flags);
   void tickFrame();
   void shutdownRenderer();
+
+  struct FrameStats
+  {
+    double drawFrameMs = 0.0;
+    double fenceWaitMs = 0.0;
+    uint32_t vertexCount = 0;
+    uint32_t batchCount = 0;
+    uint32_t textureCount = 0;
+    uint32_t swapchainImageCount = 0;
+    const char *presentModeName = "unknown";
+    char gpuName[256] = {};
+    uint32_t swapchainWidth = 0;
+    uint32_t swapchainHeight = 0;
+  };
+  FrameStats getFrameStats() const;
   void setClearColour(const float colourRGBA[4]);
   void setViewportRect(int x, int y, uint32_t width, uint32_t height);
   int allocateTextureSlot();
@@ -273,4 +289,9 @@ private:
   bool framebufferResized_ = false;
   bool startupInfoLogged_ = false;
   float clearColour_[4] = {0.05f, 0.06f, 0.09f, 1.0f};
+  size_t prevFrameVertexCount_ = 0;
+  size_t prevFrameBatchCount_ = 0;
+
+  FrameStats frameStats_ {};
+  VkPresentModeKHR activePresentMode_ = VK_PRESENT_MODE_FIFO_KHR;
 };

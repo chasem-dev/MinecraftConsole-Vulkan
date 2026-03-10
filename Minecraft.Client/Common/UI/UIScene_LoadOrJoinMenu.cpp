@@ -127,6 +127,8 @@ UIScene_LoadOrJoinMenu::UIScene_LoadOrJoinMenu(int iPad, void *initData, UILayer
     m_iTexturePacksNotInstalled = 0;
 	m_bCopying = false;
 	m_bCopyingCancelled = false;
+    m_bAutoNavigateToCreateWorld = false;
+    m_bSuppressAutoNavigateToCreateWorld = false;
 
 #ifndef _XBOX_ONE
     m_bSaveTransferCancelled=false;
@@ -178,6 +180,7 @@ UIScene_LoadOrJoinMenu::UIScene_LoadOrJoinMenu(int iPad, void *initData, UILayer
     m_bSavesDisplayed = true;
     m_bIgnoreInput = false;
     if (m_buttonListSaves.getItemCount() == 0) AddDefaultButtons();
+    m_bAutoNavigateToCreateWorld = true;
 #endif
 
 #ifdef __PSVITA__
@@ -480,6 +483,8 @@ void UIScene_LoadOrJoinMenu::handleGainFocus(bool navBack)
 
     if(navBack)
     {
+        m_bSuppressAutoNavigateToCreateWorld = true;
+        m_bAutoNavigateToCreateWorld = false;
         app.SetLiveLinkRequired( true );
 
         m_bMultiplayerAllowed = ProfileManager.IsSignedInLive( m_iPad ) && ProfileManager.AllowedToPlayMultiplayer(m_iPad); 
@@ -549,6 +554,13 @@ void UIScene_LoadOrJoinMenu::tick()
 {
     UIScene::tick();
 
+    if(m_bAutoNavigateToCreateWorld && !m_bIgnoreInput && hasFocus(m_iPad))
+    {
+        m_bAutoNavigateToCreateWorld = false;
+        handlePress((F64)eControl_SavesList, (F64)JOIN_LOAD_CREATE_BUTTON_INDEX);
+        return;
+    }
+
 #if (defined  __PS3__  || defined __ORBIS__ || defined _DURANGO || defined _WINDOWS64 || defined __PSVITA__)
     if(m_bExitScene) // navigate forward or back
     {
@@ -589,6 +601,10 @@ void UIScene_LoadOrJoinMenu::tick()
                 AddDefaultButtons();
                 m_bSavesDisplayed=true;
                 UpdateGamesList();
+                if(m_pSaveDetails->iSaveC == 0 && !m_bSuppressAutoNavigateToCreateWorld)
+                {
+                    m_bAutoNavigateToCreateWorld = true;
+                }
 
                 if(m_saveDetails!=NULL)
                 {
@@ -863,6 +879,10 @@ void UIScene_LoadOrJoinMenu::GetSaveInfo()
         m_bSavesDisplayed = true;
         m_bAllLoaded = true;
         m_bIgnoreInput = false;
+        if(uiSaveC == 0 && !m_bSuppressAutoNavigateToCreateWorld)
+        {
+            m_bAutoNavigateToCreateWorld = true;
+        }
     }
     else
     {

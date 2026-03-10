@@ -66,6 +66,12 @@ public:
 
 	const wstring &appleGetWorldName() const { return m_worldName; }
 	const wstring &appleGetSeed() const { return m_MoreOptionsParams.seed; }
+	bool appleIsGameModeSurvival() const;
+	int appleGetDifficulty() const;
+	wstring appleGetDifficultyText() const;
+	bool appleIsOnlineGame() const;
+	bool appleIsInviteOnly() const;
+	bool appleAllowsFriendsOfFriends() const;
 
 	virtual void updateTooltips();
 	virtual void updateComponents();

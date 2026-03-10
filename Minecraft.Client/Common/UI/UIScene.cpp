@@ -35,8 +35,12 @@ UIScene::UIScene(int iPad, UILayer *parentLayer)
 
 UIScene::~UIScene()
 {
-	/* Destroy the Iggy player. */
-	IggyPlayerDestroy( swf );
+	/* Destroy the Iggy player (guard against double-free if destroyMovie() was already called). */
+	if( swf != NULL )
+	{
+		IggyPlayerDestroy( swf );
+		swf = NULL;
+	}
 
 	for(AUTO_VAR(it,m_registeredTextures.begin()); it != m_registeredTextures.end(); ++it)
 	{

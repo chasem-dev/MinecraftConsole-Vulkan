@@ -203,6 +203,7 @@ public:
   void StateSetLightDirection(int light, float x, float y, float z);
   void StateSetLightEnable(int light, bool enable);
   void StateSetViewport(eViewportType viewportType);
+  void SetViewportRect(int x, int y, int w, int h);
   void StateSetEnableViewportClipPlanes(bool enable);
   void StateSetTexGenCol(int col, float x, float y, float z, float w, bool eyeSpace);
   void StateSetStencil(int Function, uint8_t stencil_ref, uint8_t stencil_func_mask, uint8_t stencil_write_mask);
@@ -212,6 +213,21 @@ public:
   void Suspend();
   bool Suspended();
   void Resume();
+
+  struct VulkanDebugStats
+  {
+    double drawFrameMs;
+    double fenceWaitMs;
+    unsigned int vertexCount;
+    unsigned int batchCount;
+    unsigned int textureCount;
+    unsigned int swapchainImageCount;
+    const char *presentModeName;
+    char gpuName[256];
+    unsigned int swapchainWidth;
+    unsigned int swapchainHeight;
+  };
+  VulkanDebugStats GetVulkanDebugStats();
 
 private:
   GLFWwindow *window_ = nullptr;

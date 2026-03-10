@@ -1051,11 +1051,11 @@ void GameRenderer::render(float a, bool bFirst)
 	}
 	else if (screenAspect < kHudAspect)
 	{
-		// Taller than 16:9 - letterbox
+		// Taller than 16:9 - letterbox, pinned to bottom
 		hudVpW = mc->width;
 		hudVpH = (int)(mc->width / kHudAspect);
 		hudVpX = 0;
-		hudVpY = (mc->height - hudVpH) / 2;
+		hudVpY = 0;
 	}
 
 	// Remap mouse into HUD viewport space
@@ -1065,6 +1065,9 @@ void GameRenderer::render(float a, bool bFirst)
 	int xMouseHud = (Mouse::getX() - hudVpX) * hudScreenWidth  / hudVpW;
 	int yMouseHud = hudScreenHeight - (Mouse::getY() - hudVpY) * hudScreenHeight / hudVpH - 1;
 
+#if defined(__APPLE__)
+	auto _tRenderLevel = System::nanoTime();
+#endif
 	if (mc->level != NULL)
 	{
 		if (mc->options->framerateLimit == 0)
@@ -1078,6 +1081,9 @@ void GameRenderer::render(float a, bool bFirst)
 
 		lastNsTime = System::nanoTime();
 
+#if defined(__APPLE__)
+		auto _tGui = System::nanoTime();
+#endif
 		if (!mc->options->hideGui || mc->screen != NULL)
 		{
 			// Save real dimensions
@@ -1096,6 +1102,43 @@ void GameRenderer::render(float a, bool bFirst)
 			mc->height = savedHeight;
 			glViewport(0, 0, savedWidth, savedHeight);
 		}
+#if defined(__APPLE__)
+		auto _tGuiEnd = System::nanoTime();
+		auto _tScreen = System::nanoTime();
+#endif
+
+		if (mc->screen != NULL)
+		{
+			glClear(GL_DEPTH_BUFFER_BIT);
+
+			int savedWidth  = mc->width;
+			int savedHeight = mc->height;
+
+			mc->width  = hudVpW;
+			mc->height = hudVpH;
+
+			glViewport(hudVpX, hudVpY, hudVpW, hudVpH);
+			mc->screen->render(xMouseHud, yMouseHud, a);
+			if (mc->screen != NULL && mc->screen->particles != NULL) mc->screen->particles->render(a);
+
+			mc->width  = savedWidth;
+			mc->height = savedHeight;
+			glViewport(0, 0, savedWidth, savedHeight);
+		}
+
+#if defined(__APPLE__)
+		{
+			auto _tEnd = System::nanoTime();
+			double rlevel = (_tGui - _tRenderLevel) / 1000000.0;
+			double gui = (_tGuiEnd - _tGui) / 1000000.0;
+			double screen = (_tEnd - _tScreen) / 1000000.0;
+			if (gui > 5.0 || screen > 5.0)
+			{
+				fprintf(stderr, "[OUTER] renderLevel=%.1f gui=%.1f screen=%.1f total=%.1fms\n",
+					rlevel, gui, screen, rlevel + gui + screen);
+			}
+		}
+#endif
 	}
 	else
 	{
@@ -1107,25 +1150,6 @@ void GameRenderer::render(float a, bool bFirst)
 		setupGuiScreen();
 
 		lastNsTime = System::nanoTime();
-	}
-
-	if (mc->screen != NULL)
-	{
-		glClear(GL_DEPTH_BUFFER_BIT);
-
-		int savedWidth  = mc->width;
-		int savedHeight = mc->height;
-
-		mc->width  = hudVpW;
-		mc->height = hudVpH;
-
-		glViewport(hudVpX, hudVpY, hudVpW, hudVpH);
-		mc->screen->render(xMouseHud, yMouseHud, a);
-		if (mc->screen != NULL && mc->screen->particles != NULL) mc->screen->particles->render(a);
-
-		mc->width  = savedWidth;
-		mc->height = savedHeight;
-		glViewport(0, 0, savedWidth, savedHeight);
 	}
 }
 
@@ -1296,6 +1320,9 @@ void GameRenderer::renderLevel(float a, __int64 until)
 {
 	//	if (updateLightTexture) updateLightTexture();	// 4J - TODO - Java 1.0.1 has this line enabled, should check why - don't want to put it in now in case it breaks split-screen
 
+#if defined(__APPLE__)
+	auto _tSetup = System::nanoTime();
+#endif
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
 
@@ -1308,6 +1335,9 @@ void GameRenderer::renderLevel(float a, __int64 until)
 		mc->cameraTargetPlayer = mc->player;
 	}
 	pick(a);
+#if defined(__APPLE__)
+	auto _tPickEnd = System::nanoTime();
+#endif
 
 	shared_ptr<Mob> cameraEntity = mc->cameraTargetPlayer;
 	LevelRenderer *levelRenderer = mc->levelRenderer;
@@ -1335,12 +1365,18 @@ void GameRenderer::renderLevel(float a, __int64 until)
 		Camera::prepare(mc->player, mc->player->ThirdPersonView() == 2);
 
 		Frustum::getFrustum();
+#if defined(__APPLE__)
+		auto _tSky = System::nanoTime();
+#endif
 		if (mc->options->viewDistance < 2)
 		{
 			setupFog(-1, a);
 			levelRenderer->renderSky(a);
 			if(mc->skins->getSelected()->getId() == 1026 ) levelRenderer->renderHaloRing(a);
 		}
+#if defined(__APPLE__)
+		auto _tSkyEnd = System::nanoTime();
+#endif
 		glEnable(GL_FOG);
 		setupFog(1, a);
 
@@ -1349,6 +1385,10 @@ void GameRenderer::renderLevel(float a, __int64 until)
 			GL11::glShadeModel(GL11::GL_SMOOTH);
 		}
 
+#if defined(__APPLE__)
+		auto _tSetupEnd = System::nanoTime();
+		auto _tCull = System::nanoTime();
+#endif
 		PIXBeginNamedEvent(0,"Culling");
 		MemSect(31);
 		//		Culler *frustum = new FrustumCuller();
@@ -1359,6 +1399,9 @@ void GameRenderer::renderLevel(float a, __int64 until)
 
 		mc->levelRenderer->cull(frustum, a);
 		PIXEndNamedEvent();
+#if defined(__APPLE__)
+		auto _tCullEnd = System::nanoTime();
+#endif
 
 #ifndef MULTITHREAD_ENABLE
 		if ( (i == 0) && updateChunks ) // 4J - added updateChunks condition
@@ -1388,12 +1431,24 @@ void GameRenderer::renderLevel(float a, __int64 until)
 		mc->textures->bindTexture(TN_TERRAIN);	// 4J was L"/terrain.png"
 		MemSect(0);
 		Lighting::turnOff();
+#if defined(__APPLE__)
+		auto _tL0 = System::nanoTime();
+#endif
 		PIXBeginNamedEvent(0,"Level render");
 		levelRenderer->render(cameraEntity, 0, a, updateChunks);
 		PIXEndNamedEvent();
+#if defined(__APPLE__)
+		auto _tL0End = System::nanoTime();
+#endif
 
 		GL11::glShadeModel(GL11::GL_FLAT);
 
+#if defined(__APPLE__)
+		auto _tEnt = System::nanoTime();
+		auto _tEntEnd = _tEnt;
+		auto _tPart = _tEnt;
+		auto _tPartEnd = _tEnt;
+#endif
 		if (cameraFlip == 0 )
 		{
 			Lighting::turnOn();
@@ -1414,6 +1469,10 @@ void GameRenderer::renderLevel(float a, __int64 until)
 			glEnable(GL_ALPHA_TEST);
 #endif
 			PIXEndNamedEvent();
+#if defined(__APPLE__)
+			_tEntEnd = System::nanoTime();
+			_tPart = System::nanoTime();
+#endif
 			PIXBeginNamedEvent(0,"Particle render");
 			turnOnLightLayer(a);		// 4J - brought forward from 1.8.2
 			particleEngine->renderLit(cameraEntity, a);
@@ -1422,6 +1481,9 @@ void GameRenderer::renderLevel(float a, __int64 until)
 			particleEngine->render(cameraEntity, a);
 			PIXEndNamedEvent();
 			turnOffLightLayer(a);		// 4J - brought forward from 1.8.2
+#if defined(__APPLE__)
+			_tPartEnd = System::nanoTime();
+#endif
 
 			shared_ptr<Player> player = dynamic_pointer_cast<Player>(cameraEntity);
 			if (mc->hitResult != NULL && cameraEntity->isUnderLiquid(Material::water) && player!=NULL) //&& !mc->options.hideGui)
@@ -1433,7 +1495,6 @@ void GameRenderer::renderLevel(float a, __int64 until)
 				glEnable(GL_ALPHA_TEST);
 			}
 		}
-
 		glDisable(GL_BLEND);
 		glEnable(GL_CULL_FACE);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1447,7 +1508,10 @@ void GameRenderer::renderLevel(float a, __int64 until)
 		// 4J - have changed this fancy rendering option to work with our command buffers. The original used to use frame buffer flags to disable
 		// writing to colour when doing the z-only pass, but that value gets obliterated by our command buffers. Using alpha blend function instead
 		// to achieve the same effect.
-		if (true)	// (mc->options->fancyGraphics)
+#if defined(__APPLE__)
+		auto _tL1 = System::nanoTime();
+#endif
+		if (mc->options->fancyGraphics)
 		{
 			if (mc->options->ambientOcclusion)
 			{
@@ -1477,6 +1541,9 @@ void GameRenderer::renderLevel(float a, __int64 until)
 		}
 
 
+#if defined(__APPLE__)
+		auto _tL1End = System::nanoTime();
+#endif
 		glDepthMask(true);
 		glEnable(GL_CULL_FACE);
 		glDisable(GL_BLEND);
@@ -1500,11 +1567,17 @@ void GameRenderer::renderLevel(float a, __int64 until)
 		glDisable(GL_FOG);
 		*/
 
+#if defined(__APPLE__)
+		auto _tPost = System::nanoTime();
+#endif
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE);
 		levelRenderer->renderDestroyAnimation(Tesselator::getInstance(), dynamic_pointer_cast<Player>(cameraEntity), a);
 		glDisable(GL_BLEND);
 
+#if defined(__APPLE__)
+		auto _tClouds = System::nanoTime();
+#endif
 		if (mc->options->isCloudsOn())
 		{
 			glPushMatrix();
@@ -1517,6 +1590,9 @@ void GameRenderer::renderLevel(float a, __int64 until)
 			setupFog(1, a);
 			glPopMatrix();
 		}
+#if defined(__APPLE__)
+		auto _tCloudsEnd = System::nanoTime();
+#endif
 
 		// 4J - rain rendering moved here so that it renders after clouds & can blend properly onto them
 		setupFog(0, a);
@@ -1526,13 +1602,46 @@ void GameRenderer::renderLevel(float a, __int64 until)
 		PIXEndNamedEvent();
 		glDisable(GL_FOG);
 
-
+#if defined(__APPLE__)
+		auto _tHand = System::nanoTime();
+#endif
 		if (zoom == 1)
 		{
 			glClear(GL_DEPTH_BUFFER_BIT);
+#if defined(__APPLE__)
+			// MoltenVK's vkCmdClearAttachments may not reliably clear depth
+			// mid-render-pass. Disable depth test so hand always renders on top.
+			glDisable(GL_DEPTH_TEST);
+#endif
 			renderItemInHand(a, i);
+#if defined(__APPLE__)
+			glEnable(GL_DEPTH_TEST);
+#endif
 		}
 
+#if defined(__APPLE__)
+		auto _tHandEnd = System::nanoTime();
+		auto _tPostEnd = _tHandEnd;
+		{
+			double pick = (_tPickEnd - _tSetup) / 1000000.0;
+			double sky = (_tSkyEnd - _tSky) / 1000000.0;
+			double setup = (_tSetupEnd - _tSetup) / 1000000.0;
+			double cull = (_tCullEnd - _tCull) / 1000000.0;
+			double l0 = (_tL0End - _tL0) / 1000000.0;
+			double ent = (_tEntEnd - _tEnt) / 1000000.0;
+			double part = (_tPartEnd - _tPart) / 1000000.0;
+			double l1 = (_tL1End - _tL1) / 1000000.0;
+			double clouds = (_tCloudsEnd - _tClouds) / 1000000.0;
+			double hand = (_tHandEnd - _tHand) / 1000000.0;
+			double post = (_tPostEnd - _tPost) / 1000000.0;
+			double total = setup + cull + l0 + ent + part + l1 + post;
+			if (total > 30.0)
+			{
+				fprintf(stderr, "[RBREAK] pick=%.1f sky=%.1f cam=%.1f cull=%.1f L0=%.1f ent=%.1f part=%.1f L1=%.1f cloud=%.1f hand=%.1f total=%.1fms\n",
+					pick, sky, setup - pick - sky, cull, l0, ent, part, l1, clouds, hand, total);
+			}
+		}
+#endif
 
 		if (!mc->options->anaglyph3d)
 		{

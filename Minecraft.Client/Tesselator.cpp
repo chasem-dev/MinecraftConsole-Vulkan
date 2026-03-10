@@ -277,6 +277,7 @@ void Tesselator::begin(int mode)
     hasTexture = false;
 	hasTexture2 = false;
     _noColor = false;
+    col = (int)0xFFFFFFFF;  // default white so uncolored vertices work with Vulkan state colour
 }
 
 void Tesselator::tex(float u, float v)
@@ -925,10 +926,10 @@ void Tesselator::vertex(float x, float y, float z)
 			*fdata++ = uu;
 			*fdata++ = v;
 		}
-		if (hasColor)
-		{
-			_array->data[p + 5] = col;
-		}
+		// Always write color slot — Vulkan path reads it regardless of hasColor.
+		// When hasColor is false, col defaults to white (0xFFFFFFFF) so the
+		// render state colour set via glColor3f/glColor4f is used unmodified.
+		_array->data[p + 5] = col;
 		if (hasNormal)
 		{
 			_array->data[p + 6] = _normal;

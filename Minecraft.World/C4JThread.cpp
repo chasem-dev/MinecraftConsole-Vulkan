@@ -392,7 +392,7 @@ DWORD C4JThread::WaitForCompletion( int timeoutMs )
 
 int C4JThread::GetExitCode()
 {
-#if defined  __PS3__ || defined __ORBIS__ || defined __PSVITA__
+#if defined  __PS3__ || defined __ORBIS__ || defined __PSVITA__ || defined __APPLE__
 	return m_exitCode;
 #else
 	DWORD exitcode = 0;

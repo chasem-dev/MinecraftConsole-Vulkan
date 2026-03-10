@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <cstring>
 #include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -101,10 +102,14 @@ struct RecordedCommandBuffer
 
 thread_local ThreadRenderContext g_threadContext;
 std::unordered_map<int, RecordedCommandBuffer> g_commandBuffers;
-std::mutex g_commandBufferMutex;
+std::shared_mutex g_commandBufferMutex;
 int g_nextCommandBufferIndex = 1;
 thread_local int g_activeCommandBufferIndex = -1;
 thread_local bool g_replayingCommandBuffer = false;
+// Staging buffer for double-buffered display list recording.  Draws
+// accumulate here during CBuffStart..CBuffEnd so the live buffer in
+// g_commandBuffers is never in a half-built state.
+thread_local RecordedCommandBuffer g_stagingBuffer;
 C4JRender &getRenderManager();
 
 Matrix identityMatrix()
@@ -115,6 +120,33 @@ Matrix identityMatrix()
     0.0f, 0.0f, 1.0f, 0.0f,
     0.0f, 0.0f, 0.0f, 1.0f
   };
+}
+
+// Check whether a matrix is the identity (skip texture-matrix work when it is).
+static bool isIdentityMatrix(const Matrix &m)
+{
+  const Matrix &id = identityMatrix();
+  for (int i = 0; i < 16; ++i)
+  {
+    if (m[i] != id[i]) return false;
+  }
+  return true;
+}
+
+// Apply a 4x4 texture matrix to the UV coordinates of every vertex.
+// Column-major layout (OpenGL convention): newU = m[0]*u + m[4]*v + m[12],
+//                                          newV = m[1]*u + m[5]*v + m[13].
+static void applyTextureMatrixToUVs(
+  const Matrix &texMat,
+  std::vector<VulkanBootstrapApp::Vertex> &verts)
+{
+  for (auto &v : verts)
+  {
+    const float u = v.texCoord[0];
+    const float vc = v.texCoord[1];
+    v.texCoord[0] = texMat[0] * u + texMat[4] * vc + texMat[12];
+    v.texCoord[1] = texMat[1] * u + texMat[5] * vc + texMat[13];
+  }
 }
 
 ThreadRenderContext &getThreadContext()
@@ -362,7 +394,50 @@ float normalizePrimaryTexCoord(float u)
   return u > 1.0f ? (u - 1.0f) : u;
 }
 
-VulkanBootstrapApp::Vertex convertVertex(const EngineVertex &vertex)
+// Pre-computed colour modulation factors — built once per draw call to avoid
+// repeated thread_local accesses (getThreadContext / g_activeCommandBufferIndex /
+// g_replayingCommandBuffer) inside per-vertex conversion.  When recording a
+// command buffer the scale is {1,1,1,1} so raw vertex colours are stored;
+// otherwise the current render state colour is baked in, with blend factor
+// alpha folded into the W component.
+struct ConvertParams
+{
+  float colourScale[4];
+};
+
+ConvertParams buildConvertParams()
+{
+  ConvertParams params {};
+  ThreadRenderContext &context = getThreadContext();
+  const bool recording = g_activeCommandBufferIndex >= 0 && !g_replayingCommandBuffer;
+  if (recording)
+  {
+    params.colourScale[0] = 1.0f;
+    params.colourScale[1] = 1.0f;
+    params.colourScale[2] = 1.0f;
+    params.colourScale[3] = 1.0f;
+  }
+  else
+  {
+    params.colourScale[0] = context.renderState.colour[0];
+    params.colourScale[1] = context.renderState.colour[1];
+    params.colourScale[2] = context.renderState.colour[2];
+    params.colourScale[3] = context.renderState.colour[3];
+  }
+  // Blend factor alpha applies to per-vertex alpha in both recording and
+  // immediate paths — fold it into the scale so the inner loop is branchless.
+  if (context.renderState.blendEnabled &&
+      context.renderState.blendSrc == GL_CONSTANT_ALPHA &&
+      context.renderState.blendDst == GL_ONE_MINUS_CONSTANT_ALPHA)
+  {
+    params.colourScale[3] *= context.renderState.blendFactorAlpha;
+  }
+  return params;
+}
+
+inline VulkanBootstrapApp::Vertex convertVertex(
+  const EngineVertex &vertex,
+  const ConvertParams &params)
 {
   VulkanBootstrapApp::Vertex result {};
   result.position[0] = vertex.x;
@@ -371,40 +446,31 @@ VulkanBootstrapApp::Vertex convertVertex(const EngineVertex &vertex)
   result.texCoord[0] = normalizePrimaryTexCoord(vertex.u);
   result.texCoord[1] = vertex.v;
 
-  const float sourceColor[4] = {
-    static_cast<float>((vertex.color >> 16) & 0xff) / 255.0f,
-    static_cast<float>((vertex.color >> 8) & 0xff) / 255.0f,
-    static_cast<float>(vertex.color & 0xff) / 255.0f,
-    static_cast<float>((vertex.color >> 24) & 0xff) / 255.0f
-  };
-
-  ThreadRenderContext &context = getThreadContext();
-  result.color[0] = sourceColor[0] * context.renderState.colour[0];
-  result.color[1] = sourceColor[1] * context.renderState.colour[1];
-  result.color[2] = sourceColor[2] * context.renderState.colour[2];
-  result.color[3] = sourceColor[3] * context.renderState.colour[3];
-  if (context.renderState.blendEnabled &&
-      context.renderState.blendSrc == GL_CONSTANT_ALPHA &&
-      context.renderState.blendDst == GL_ONE_MINUS_CONSTANT_ALPHA)
-  {
-    result.color[3] *= context.renderState.blendFactorAlpha;
-  }
-
+  // Tesselator packs color as RGBA: (R<<24 | G<<16 | B<<8 | A)
+  constexpr float inv255 = 1.0f / 255.0f;
+  result.color[0] = static_cast<float>((vertex.color >> 24) & 0xff) * inv255 * params.colourScale[0];
+  result.color[1] = static_cast<float>((vertex.color >> 16) & 0xff) * inv255 * params.colourScale[1];
+  result.color[2] = static_cast<float>((vertex.color >> 8) & 0xff) * inv255 * params.colourScale[2];
+  result.color[3] = static_cast<float>(vertex.color & 0xff) * inv255 * params.colourScale[3];
   return result;
 }
 
-VulkanBootstrapApp::Vertex convertCompressedVertex(const EngineVertexCompressed &vertex)
+inline VulkanBootstrapApp::Vertex convertCompressedVertex(
+  const EngineVertexCompressed &vertex,
+  const ConvertParams &params)
 {
   VulkanBootstrapApp::Vertex result {};
-  result.position[0] = static_cast<float>(vertex.x) / 1024.0f;
-  result.position[1] = static_cast<float>(vertex.y) / 1024.0f;
-  result.position[2] = static_cast<float>(vertex.z) / 1024.0f;
+  constexpr float inv1024 = 1.0f / 1024.0f;
+  result.position[0] = static_cast<float>(vertex.x) * inv1024;
+  result.position[1] = static_cast<float>(vertex.y) * inv1024;
+  result.position[2] = static_cast<float>(vertex.z) * inv1024;
   // The Tesselator encodes UVs as (int)(u * 8192.0f) & 0xffff into int16_t slots.
   // For mipmap-disabled vertices, U is shifted by +1.0 before encoding (range [1,2)).
   // Decode using the unsigned 16-bit pattern to recover the full encoded value,
   // then strip the mipmap flag. Use fmodf to handle any wrap from 16-bit truncation.
-  float rawU = static_cast<float>(static_cast<uint16_t>(vertex.u)) / 8192.0f;
-  float rawV = static_cast<float>(static_cast<uint16_t>(vertex.v)) / 8192.0f;
+  constexpr float inv8192 = 1.0f / 8192.0f;
+  float rawU = static_cast<float>(static_cast<uint16_t>(vertex.u)) * inv8192;
+  float rawV = static_cast<float>(static_cast<uint16_t>(vertex.v)) * inv8192;
   // Only U carries the mipmap-disable flag (shifted into [1,2) range by the
   // Tesselator).  Strip that offset to recover the real atlas coordinate.
   // V never has this flag, so leave it untouched.
@@ -417,36 +483,25 @@ VulkanBootstrapApp::Vertex convertCompressedVertex(const EngineVertexCompressed 
 
   // Compact vertices bias RGB565 by -32768 before storing into the signed short slot.
   const uint16_t packed = static_cast<uint16_t>(static_cast<uint16_t>(vertex.color565) + 0x8000u);
-  const float sourceColor[4] = {
-    static_cast<float>((packed >> 11) & 0x1f) / 31.0f,
-    static_cast<float>((packed >> 5) & 0x3f) / 63.0f,
-    static_cast<float>(packed & 0x1f) / 31.0f,
-    1.0f
-  };
-
-  ThreadRenderContext &context = getThreadContext();
-  result.color[0] = sourceColor[0] * context.renderState.colour[0];
-  result.color[1] = sourceColor[1] * context.renderState.colour[1];
-  result.color[2] = sourceColor[2] * context.renderState.colour[2];
-  result.color[3] = sourceColor[3] * context.renderState.colour[3];
-  if (context.renderState.blendEnabled &&
-      context.renderState.blendSrc == GL_CONSTANT_ALPHA &&
-      context.renderState.blendDst == GL_ONE_MINUS_CONSTANT_ALPHA)
-  {
-    result.color[3] *= context.renderState.blendFactorAlpha;
-  }
-
+  constexpr float inv31 = 1.0f / 31.0f;
+  constexpr float inv63 = 1.0f / 63.0f;
+  result.color[0] = static_cast<float>((packed >> 11) & 0x1f) * inv31 * params.colourScale[0];
+  result.color[1] = static_cast<float>((packed >> 5) & 0x3f) * inv63 * params.colourScale[1];
+  result.color[2] = static_cast<float>(packed & 0x1f) * inv31 * params.colourScale[2];
+  // Compressed format has implicit alpha = 1.0, so colour scale is used directly.
+  result.color[3] = params.colourScale[3];
   return result;
 }
 
 VulkanBootstrapApp::BlendMode determineBlendMode()
 {
-  if (!getThreadContext().renderState.blendEnabled)
+  const ThreadRenderContext &context = getThreadContext();
+  if (!context.renderState.blendEnabled)
   {
     return VulkanBootstrapApp::BlendMode::Opaque;
   }
 
-  if (getThreadContext().renderState.blendDst == GL_ONE)
+  if (context.renderState.blendDst == GL_ONE)
   {
     return VulkanBootstrapApp::BlendMode::Additive;
   }
@@ -460,8 +515,9 @@ VulkanBootstrapApp::ShaderVariant determineShaderVariant(int textureIndex)
   {
     return VulkanBootstrapApp::ShaderVariant::ColorOnly;
   }
-  const bool fog = getThreadContext().renderState.fogEnabled;
-  const bool alphaTest = getThreadContext().renderState.alphaTestEnabled;
+  const ThreadRenderContext &context = getThreadContext();
+  const bool fog = context.renderState.fogEnabled;
+  const bool alphaTest = context.renderState.alphaTestEnabled;
   if (fog && alphaTest)
   {
     return VulkanBootstrapApp::ShaderVariant::TexturedFogAlphaTest;
@@ -492,6 +548,196 @@ size_t getVertexStride(C4JRender::eVertexType vertexType)
   }
 }
 
+// Reusable thread-local buffer for vertex conversion — avoids allocating a
+// new std::vector on every draw call in the immediate (non-recording) path.
+thread_local std::vector<VulkanBootstrapApp::Vertex> g_immediateVertexBuffer;
+
+// Convert engine primitives into triangle-list Vulkan vertices.  Clears
+// 'output' and appends the converted vertices.  Returns false on bad input.
+bool convertPrimitives(
+  C4JRender::ePrimitiveType primitiveType,
+  int count,
+  const void *dataIn,
+  C4JRender::eVertexType vertexType,
+  std::vector<VulkanBootstrapApp::Vertex> &output)
+{
+  if (dataIn == nullptr || count <= 0)
+  {
+    return false;
+  }
+  if (vertexType != C4JRender::VERTEX_TYPE_COMPRESSED &&
+      vertexType != C4JRender::VERTEX_TYPE_PF3_TF2_CB4_NB4_XW1 &&
+      vertexType != C4JRender::VERTEX_TYPE_PF3_TF2_CB4_NB4_XW1_LIT &&
+      vertexType != C4JRender::VERTEX_TYPE_PF3_TF2_CB4_NB4_XW1_TEXGEN)
+  {
+    return false;
+  }
+
+  const EngineVertex *vertices = static_cast<const EngineVertex *>(dataIn);
+  const EngineVertexCompressed *compressedVertices = static_cast<const EngineVertexCompressed *>(dataIn);
+
+  output.clear();
+
+  // Build colour modulation params once per draw call — eliminates per-vertex
+  // thread_local reads (getThreadContext, g_activeCommandBufferIndex, etc.).
+  const ConvertParams params = buildConvertParams();
+  const bool compressed = vertexType == C4JRender::VERTEX_TYPE_COMPRESSED;
+
+  if (primitiveType == C4JRender::PRIMITIVE_TYPE_QUAD_LIST)
+  {
+    output.reserve(static_cast<size_t>(count) / 4 * 6);
+    if (compressed)
+    {
+      for (int index = 0; index + 3 < count; index += 4)
+      {
+        const VulkanBootstrapApp::Vertex v0 = convertCompressedVertex(compressedVertices[index + 0], params);
+        const VulkanBootstrapApp::Vertex v1 = convertCompressedVertex(compressedVertices[index + 1], params);
+        const VulkanBootstrapApp::Vertex v2 = convertCompressedVertex(compressedVertices[index + 2], params);
+        const VulkanBootstrapApp::Vertex v3 = convertCompressedVertex(compressedVertices[index + 3], params);
+        output.push_back(v0);
+        output.push_back(v1);
+        output.push_back(v2);
+        output.push_back(v0);
+        output.push_back(v2);
+        output.push_back(v3);
+      }
+    }
+    else
+    {
+      for (int index = 0; index + 3 < count; index += 4)
+      {
+        const VulkanBootstrapApp::Vertex v0 = convertVertex(vertices[index + 0], params);
+        const VulkanBootstrapApp::Vertex v1 = convertVertex(vertices[index + 1], params);
+        const VulkanBootstrapApp::Vertex v2 = convertVertex(vertices[index + 2], params);
+        const VulkanBootstrapApp::Vertex v3 = convertVertex(vertices[index + 3], params);
+        output.push_back(v0);
+        output.push_back(v1);
+        output.push_back(v2);
+        output.push_back(v0);
+        output.push_back(v2);
+        output.push_back(v3);
+      }
+    }
+  }
+  else if (primitiveType == C4JRender::PRIMITIVE_TYPE_TRIANGLE_LIST)
+  {
+    output.reserve(static_cast<size_t>(count));
+    if (compressed)
+    {
+      for (int index = 0; index < count; ++index)
+      {
+        output.push_back(convertCompressedVertex(compressedVertices[index], params));
+      }
+    }
+    else
+    {
+      for (int index = 0; index < count; ++index)
+      {
+        output.push_back(convertVertex(vertices[index], params));
+      }
+    }
+  }
+  else if (primitiveType == C4JRender::PRIMITIVE_TYPE_TRIANGLE_STRIP)
+  {
+    output.reserve(static_cast<size_t>(count - 2) * 3);
+    if (compressed)
+    {
+      for (int index = 0; index + 2 < count; ++index)
+      {
+        const VulkanBootstrapApp::Vertex a = convertCompressedVertex(compressedVertices[index + 0], params);
+        const VulkanBootstrapApp::Vertex b = convertCompressedVertex(compressedVertices[index + 1], params);
+        const VulkanBootstrapApp::Vertex c = convertCompressedVertex(compressedVertices[index + 2], params);
+        if ((index & 1) == 0)
+        {
+          output.push_back(a);
+          output.push_back(b);
+          output.push_back(c);
+        }
+        else
+        {
+          output.push_back(b);
+          output.push_back(a);
+          output.push_back(c);
+        }
+      }
+    }
+    else
+    {
+      for (int index = 0; index + 2 < count; ++index)
+      {
+        const VulkanBootstrapApp::Vertex a = convertVertex(vertices[index + 0], params);
+        const VulkanBootstrapApp::Vertex b = convertVertex(vertices[index + 1], params);
+        const VulkanBootstrapApp::Vertex c = convertVertex(vertices[index + 2], params);
+        if ((index & 1) == 0)
+        {
+          output.push_back(a);
+          output.push_back(b);
+          output.push_back(c);
+        }
+        else
+        {
+          output.push_back(b);
+          output.push_back(a);
+          output.push_back(c);
+        }
+      }
+    }
+  }
+  else if (primitiveType == C4JRender::PRIMITIVE_TYPE_TRIANGLE_FAN)
+  {
+    output.reserve(static_cast<size_t>(count - 1) * 3);
+    if (compressed)
+    {
+      const VulkanBootstrapApp::Vertex origin = convertCompressedVertex(compressedVertices[0], params);
+      for (int index = 1; index + 1 < count; ++index)
+      {
+        output.push_back(origin);
+        output.push_back(convertCompressedVertex(compressedVertices[index], params));
+        output.push_back(convertCompressedVertex(compressedVertices[index + 1], params));
+      }
+    }
+    else
+    {
+      const VulkanBootstrapApp::Vertex origin = convertVertex(vertices[0], params);
+      for (int index = 1; index + 1 < count; ++index)
+      {
+        output.push_back(origin);
+        output.push_back(convertVertex(vertices[index], params));
+        output.push_back(convertVertex(vertices[index + 1], params));
+      }
+    }
+  }
+  else
+  {
+    return false;
+  }
+
+  return !output.empty();
+}
+
+// Determine render state and shader variant from the current thread context.
+void buildCurrentRenderState(
+  C4JRender::eVertexType vertexType,
+  VulkanBootstrapApp::RenderState &renderState,
+  VulkanBootstrapApp::ShaderVariant &variant)
+{
+  ThreadRenderContext &context = getThreadContext();
+  const int currentTexture = context.currentTextureIndex;
+  renderState.blendMode = determineBlendMode();
+  renderState.depthTestEnabled = context.renderState.depthTestEnabled;
+  renderState.depthWriteEnabled = context.renderState.depthTestEnabled && context.renderState.depthWriteEnabled;
+  renderState.cullEnabled = context.renderState.cullEnabled;
+  renderState.cullClockwise = context.renderState.cullClockwise;
+  renderState.textureIndex = currentTexture;
+
+  if (vertexType == C4JRender::VERTEX_TYPE_COMPRESSED)
+  {
+    renderState.cullEnabled = false;
+  }
+
+  variant = determineShaderVariant(currentTexture);
+}
+
 bool buildRecordedDrawCommand(
   C4JRender::ePrimitiveType primitiveType,
   int count,
@@ -507,25 +753,39 @@ bool dispatchDrawVertices(
   C4JRender::eVertexType vertexType,
   C4JRender::ePixelShaderType pixelShaderType)
 {
-  RecordedDrawCommand command {};
-  if (!buildRecordedDrawCommand(primitiveType, count, dataIn, vertexType, pixelShaderType, &command))
+  (void)pixelShaderType;
+
+  // Convert primitives into the thread-local reusable buffer (no allocation
+  // after the first few frames once the buffer has grown to steady-state).
+  if (!convertPrimitives(primitiveType, count, dataIn, vertexType, g_immediateVertexBuffer))
   {
     return false;
   }
+
+  VulkanBootstrapApp::RenderState renderState {};
+  VulkanBootstrapApp::ShaderVariant variant {};
+  buildCurrentRenderState(vertexType, renderState, variant);
 
   ThreadRenderContext &context = getThreadContext();
   const Matrix &projection = context.projectionStack.back();
   const Matrix &modelView = context.modelViewStack.back();
   const Matrix mvp = multiplyMatrix(projection, modelView);
 
+  // Apply the GL_TEXTURE matrix to UV coordinates when it is non-identity.
+  const Matrix &texMat = context.textureStack.back();
+  if (!isIdentityMatrix(texMat))
+  {
+    applyTextureMatrixToUVs(texMat, g_immediateVertexBuffer);
+  }
+
   g_vulkanBackend.submitVertices(
     VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-    command.vertices.data(),
-    command.vertices.size(),
-    command.shaderVariant,
+    g_immediateVertexBuffer.data(),
+    g_immediateVertexBuffer.size(),
+    variant,
     mvp.data(),
-    command.renderState);
-  return !command.vertices.empty();
+    renderState);
+  return true;
 }
 
 bool buildRecordedDrawCommand(
@@ -536,113 +796,21 @@ bool buildRecordedDrawCommand(
   C4JRender::ePixelShaderType pixelShaderType,
   RecordedDrawCommand *commandOut)
 {
-  if (dataIn == nullptr || count <= 0)
-  {
-    return false;
-  }
-  if (vertexType != C4JRender::VERTEX_TYPE_COMPRESSED &&
-      vertexType != C4JRender::VERTEX_TYPE_PF3_TF2_CB4_NB4_XW1 &&
-      vertexType != C4JRender::VERTEX_TYPE_PF3_TF2_CB4_NB4_XW1_LIT &&
-      vertexType != C4JRender::VERTEX_TYPE_PF3_TF2_CB4_NB4_XW1_TEXGEN)
-  {
-    return false;
-  }
-
   (void)pixelShaderType;
 
-  const EngineVertex *vertices = static_cast<const EngineVertex *>(dataIn);
-  const EngineVertexCompressed *compressedVertices = static_cast<const EngineVertexCompressed *>(dataIn);
-
-  std::vector<VulkanBootstrapApp::Vertex> converted;
-  converted.reserve(static_cast<size_t>(count) * 2);
-
-  if (primitiveType == C4JRender::PRIMITIVE_TYPE_QUAD_LIST)
-  {
-    for (int index = 0; index + 3 < count; index += 4)
-    {
-      const VulkanBootstrapApp::Vertex v0 = vertexType == C4JRender::VERTEX_TYPE_COMPRESSED ? convertCompressedVertex(compressedVertices[index + 0]) : convertVertex(vertices[index + 0]);
-      const VulkanBootstrapApp::Vertex v1 = vertexType == C4JRender::VERTEX_TYPE_COMPRESSED ? convertCompressedVertex(compressedVertices[index + 1]) : convertVertex(vertices[index + 1]);
-      const VulkanBootstrapApp::Vertex v2 = vertexType == C4JRender::VERTEX_TYPE_COMPRESSED ? convertCompressedVertex(compressedVertices[index + 2]) : convertVertex(vertices[index + 2]);
-      const VulkanBootstrapApp::Vertex v3 = vertexType == C4JRender::VERTEX_TYPE_COMPRESSED ? convertCompressedVertex(compressedVertices[index + 3]) : convertVertex(vertices[index + 3]);
-      converted.push_back(v0);
-      converted.push_back(v1);
-      converted.push_back(v2);
-      converted.push_back(v0);
-      converted.push_back(v2);
-      converted.push_back(v3);
-    }
-  }
-  else if (primitiveType == C4JRender::PRIMITIVE_TYPE_TRIANGLE_LIST)
-  {
-    for (int index = 0; index < count; ++index)
-    {
-      converted.push_back(vertexType == C4JRender::VERTEX_TYPE_COMPRESSED ? convertCompressedVertex(compressedVertices[index]) : convertVertex(vertices[index]));
-    }
-  }
-  else if (primitiveType == C4JRender::PRIMITIVE_TYPE_TRIANGLE_STRIP)
-  {
-    for (int index = 0; index + 2 < count; ++index)
-    {
-      const VulkanBootstrapApp::Vertex a = vertexType == C4JRender::VERTEX_TYPE_COMPRESSED ? convertCompressedVertex(compressedVertices[index + 0]) : convertVertex(vertices[index + 0]);
-      const VulkanBootstrapApp::Vertex b = vertexType == C4JRender::VERTEX_TYPE_COMPRESSED ? convertCompressedVertex(compressedVertices[index + 1]) : convertVertex(vertices[index + 1]);
-      const VulkanBootstrapApp::Vertex c = vertexType == C4JRender::VERTEX_TYPE_COMPRESSED ? convertCompressedVertex(compressedVertices[index + 2]) : convertVertex(vertices[index + 2]);
-      if ((index & 1) == 0)
-      {
-        converted.push_back(a);
-        converted.push_back(b);
-        converted.push_back(c);
-      }
-      else
-      {
-        converted.push_back(b);
-        converted.push_back(a);
-        converted.push_back(c);
-      }
-    }
-  }
-  else if (primitiveType == C4JRender::PRIMITIVE_TYPE_TRIANGLE_FAN)
-  {
-    const VulkanBootstrapApp::Vertex origin = vertexType == C4JRender::VERTEX_TYPE_COMPRESSED ? convertCompressedVertex(compressedVertices[0]) : convertVertex(vertices[0]);
-    for (int index = 1; index + 1 < count; ++index)
-    {
-      converted.push_back(origin);
-      converted.push_back(vertexType == C4JRender::VERTEX_TYPE_COMPRESSED ? convertCompressedVertex(compressedVertices[index]) : convertVertex(vertices[index]));
-      converted.push_back(vertexType == C4JRender::VERTEX_TYPE_COMPRESSED ? convertCompressedVertex(compressedVertices[index + 1]) : convertVertex(vertices[index + 1]));
-    }
-  }
-  else
+  if (commandOut == nullptr)
   {
     return false;
   }
 
-  ThreadRenderContext &context = getThreadContext();
-  const int currentTexture = context.currentTextureIndex;
-  VulkanBootstrapApp::RenderState renderState {};
-  renderState.blendMode = determineBlendMode();
-  renderState.depthTestEnabled = context.renderState.depthTestEnabled;
-  renderState.depthWriteEnabled = context.renderState.depthTestEnabled && context.renderState.depthWriteEnabled;
-  renderState.cullEnabled = context.renderState.cullEnabled;
-  renderState.cullClockwise = context.renderState.cullClockwise;
-  renderState.textureIndex = currentTexture;
-
-  // The legacy compact chunk path emits face winding that is not yet stable
-  // under the Vulkan translation layer. Prefer rendering both sides over
-  // dropping terrain faces while we mirror the old fixed-function behavior.
-  if (vertexType == C4JRender::VERTEX_TYPE_COMPRESSED)
+  // Convert primitives into the command's vertex storage.
+  if (!convertPrimitives(primitiveType, count, dataIn, vertexType, commandOut->vertices))
   {
-    renderState.cullEnabled = false;
+    return false;
   }
 
-  const VulkanBootstrapApp::ShaderVariant variant = determineShaderVariant(currentTexture);
-  if (commandOut != nullptr)
-  {
-    commandOut->shaderVariant = variant;
-    commandOut->renderState = renderState;
-    commandOut->vertices = std::move(converted);
-    return !commandOut->vertices.empty();
-  }
-
-  return !converted.empty();
+  buildCurrentRenderState(vertexType, commandOut->renderState, commandOut->shaderVariant);
+  return true;
 }
 
 bool decodeTextureBytes(
@@ -910,6 +1078,23 @@ const float *C4JRender::MatrixGet(int type)
 void C4JRender::Set_matrixDirty() {}
 void C4JRender::InitialiseContext() {}
 void C4JRender::StartFrame() { g_vulkanBackend.beginFrame(); }
+
+C4JRender::VulkanDebugStats C4JRender::GetVulkanDebugStats()
+{
+  auto s = g_vulkanBackend.getFrameStats();
+  VulkanDebugStats out {};
+  out.drawFrameMs = s.drawFrameMs;
+  out.fenceWaitMs = s.fenceWaitMs;
+  out.vertexCount = s.vertexCount;
+  out.batchCount = s.batchCount;
+  out.textureCount = s.textureCount;
+  out.swapchainImageCount = s.swapchainImageCount;
+  out.presentModeName = s.presentModeName;
+  std::memcpy(out.gpuName, s.gpuName, sizeof(out.gpuName));
+  out.swapchainWidth = s.swapchainWidth;
+  out.swapchainHeight = s.swapchainHeight;
+  return out;
+}
 void C4JRender::DoScreenGrabOnNextPresent() {}
 void C4JRender::Present() { g_vulkanBackend.tickFrame(); }
 void C4JRender::Clear(int flags, D3D11_RECT *)
@@ -953,11 +1138,10 @@ void C4JRender::DrawVertices(
 
     ThreadRenderContext &context = getThreadContext();
     const Matrix &currentModelView = context.modelViewStack.back();
-    std::lock_guard<std::mutex> lock(g_commandBufferMutex);
-    RecordedCommandBuffer &buffer = g_commandBuffers[g_activeCommandBufferIndex];
-    command.localModelView = multiplyMatrix(invertMatrix(buffer.baseModelView), currentModelView);
-    buffer.draws.push_back(std::move(command));
-    buffer.bytes += buffer.draws.back().vertices.size() * sizeof(VulkanBootstrapApp::Vertex);
+    // Record into the thread-local staging buffer (no lock needed).
+    command.localModelView = multiplyMatrix(invertMatrix(g_stagingBuffer.baseModelView), currentModelView);
+    g_stagingBuffer.draws.push_back(std::move(command));
+    g_stagingBuffer.bytes += g_stagingBuffer.draws.back().vertices.size() * sizeof(VulkanBootstrapApp::Vertex);
     return;
   }
   dispatchDrawVertices(primitiveType, count, dataIn, vType, psType);
@@ -972,7 +1156,7 @@ int C4JRender::CBuffCreate(int count)
     return 0;
   }
 
-  std::lock_guard<std::mutex> lock(g_commandBufferMutex);
+  std::unique_lock<std::shared_mutex> lock(g_commandBufferMutex);
   const int firstIndex = g_nextCommandBufferIndex;
   for (int offset = 0; offset < count; ++offset)
   {
@@ -984,7 +1168,7 @@ int C4JRender::CBuffCreate(int count)
 
 void C4JRender::CBuffDelete(int first, int count)
 {
-  std::lock_guard<std::mutex> lock(g_commandBufferMutex);
+  std::unique_lock<std::shared_mutex> lock(g_commandBufferMutex);
   for (int offset = 0; offset < count; ++offset)
   {
     g_commandBuffers.erase(first + offset);
@@ -998,17 +1182,17 @@ void C4JRender::CBuffDelete(int first, int count)
 void C4JRender::CBuffStart(int index, bool)
 {
   ThreadRenderContext &context = getThreadContext();
-  std::lock_guard<std::mutex> lock(g_commandBufferMutex);
-  RecordedCommandBuffer &buffer = g_commandBuffers[index];
-  buffer.draws.clear();
-  buffer.bytes = 0;
-  buffer.baseModelView = context.modelViewStack.back();
+  // Record into the thread-local staging buffer so the live buffer
+  // stays intact for the render thread to read via CBuffCall.
+  g_stagingBuffer.draws.clear();
+  g_stagingBuffer.bytes = 0;
+  g_stagingBuffer.baseModelView = context.modelViewStack.back();
   g_activeCommandBufferIndex = index;
 }
 
 void C4JRender::CBuffClear(int index)
 {
-  std::lock_guard<std::mutex> lock(g_commandBufferMutex);
+  std::unique_lock<std::shared_mutex> lock(g_commandBufferMutex);
   auto it = g_commandBuffers.find(index);
   if (it == g_commandBuffers.end())
   {
@@ -1021,7 +1205,7 @@ void C4JRender::CBuffClear(int index)
 
 int C4JRender::CBuffSize(int index)
 {
-  std::lock_guard<std::mutex> lock(g_commandBufferMutex);
+  std::shared_lock<std::shared_mutex> lock(g_commandBufferMutex);
   if (index < 0)
   {
     size_t totalBytes = 0;
@@ -1043,6 +1227,14 @@ int C4JRender::CBuffSize(int index)
 
 void C4JRender::CBuffEnd()
 {
+  if (g_activeCommandBufferIndex >= 0)
+  {
+    // Atomically swap the fully-built staging buffer into the live
+    // buffer so the render thread never sees a half-built list.
+    std::unique_lock<std::shared_mutex> lock(g_commandBufferMutex);
+    g_commandBuffers[g_activeCommandBufferIndex] = std::move(g_stagingBuffer);
+  }
+  g_stagingBuffer = RecordedCommandBuffer {};
   g_activeCommandBufferIndex = -1;
 }
 
@@ -1052,31 +1244,81 @@ bool C4JRender::CBuffCall(int index, bool)
   const Matrix &projection = context.projectionStack.back();
   const Matrix &modelView = context.modelViewStack.back();
 
-  std::lock_guard<std::mutex> lock(g_commandBufferMutex);
+  std::shared_lock<std::shared_mutex> lock(g_commandBufferMutex);
   const auto it = g_commandBuffers.find(index);
   if (it == g_commandBuffers.end() || it->second.draws.empty())
   {
     return false;
   }
 
+  // OpenGL display list semantics: glCallList inherits the caller's current
+  // GL state (blend mode, depth, colour, texture, etc.).  The display list
+  // only overrides state that was explicitly set *inside* the list.  Our
+  // recorded commands captured the state at record time, but for replay we
+  // must use the caller's current state for everything except the model-view
+  // transform (which is relative and already handled).
+
+  // Build the replay render state from the CURRENT context, not the recorded one.
+  VulkanBootstrapApp::RenderState currentState {};
+  currentState.blendMode = determineBlendMode();
+  currentState.depthTestEnabled = context.renderState.depthTestEnabled;
+  currentState.depthWriteEnabled = context.renderState.depthTestEnabled && context.renderState.depthWriteEnabled;
+  currentState.cullEnabled = context.renderState.cullEnabled;
+  currentState.cullClockwise = context.renderState.cullClockwise;
+  currentState.textureIndex = context.currentTextureIndex;
+
+  const auto &colour = context.renderState.colour;
+  const bool needsColourModulation =
+    colour[0] != 1.0f || colour[1] != 1.0f || colour[2] != 1.0f || colour[3] != 1.0f;
+
+  // Hoist shader variant outside the loop — the texture index and render state
+  // don't change during display list replay, so this is invariant.
+  const VulkanBootstrapApp::ShaderVariant replayVariant =
+    currentState.textureIndex < 0
+    ? VulkanBootstrapApp::ShaderVariant::ColorOnly
+    : determineShaderVariant(currentState.textureIndex);
+
+  // Pre-build the colour modulation array once instead of per-draw.
+  const float colorMod[4] = {colour[0], colour[1], colour[2], colour[3]};
+
+  // Apply the GL_TEXTURE matrix to UV coordinates when it is non-identity.
+  // The precompiled item mesh (ItemInHandRenderer::list) stores UVs in the
+  // first atlas slot and relies on a texture-matrix translate to shift them
+  // to the correct icon position.  Without this the wrong region is sampled.
+  const Matrix &texMat = context.textureStack.back();
+  const bool needsTexTransform = !isIdentityMatrix(texMat);
+  thread_local std::vector<VulkanBootstrapApp::Vertex> texTransformBuf;
+
   g_replayingCommandBuffer = true;
   for (const RecordedDrawCommand &command : it->second.draws)
   {
     const Matrix replayModelView = multiplyMatrix(modelView, command.localModelView);
     const Matrix mvp = multiplyMatrix(projection, replayModelView);
-    VulkanBootstrapApp::RenderState replayState = command.renderState;
-    replayState.textureIndex = context.currentTextureIndex;
-    VulkanBootstrapApp::ShaderVariant replayVariant =
-      replayState.textureIndex < 0
-      ? VulkanBootstrapApp::ShaderVariant::ColorOnly
-      : determineShaderVariant(replayState.textureIndex);
-    g_vulkanBackend.submitVertices(
-      VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-      command.vertices.data(),
-      command.vertices.size(),
-      replayVariant,
-      mvp.data(),
-      replayState);
+
+    if (needsTexTransform)
+    {
+      texTransformBuf = command.vertices;
+      applyTextureMatrixToUVs(texMat, texTransformBuf);
+      g_vulkanBackend.submitVertices(
+        VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        texTransformBuf.data(),
+        texTransformBuf.size(),
+        replayVariant,
+        mvp.data(),
+        currentState,
+        needsColourModulation ? colorMod : nullptr);
+    }
+    else
+    {
+      g_vulkanBackend.submitVertices(
+        VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        command.vertices.data(),
+        command.vertices.size(),
+        replayVariant,
+        mvp.data(),
+        currentState,
+        needsColourModulation ? colorMod : nullptr);
+    }
   }
   g_replayingCommandBuffer = false;
   return true;
@@ -1394,6 +1636,11 @@ void C4JRender::StateSetViewport(eViewportType viewportType)
   }
 
   g_vulkanBackend.setViewportRect(x, y, width, height);
+}
+void C4JRender::SetViewportRect(int x, int y, int w, int h)
+{
+  if (w > 0 && h > 0)
+    g_vulkanBackend.setViewportRect(x, y, static_cast<uint32_t>(w), static_cast<uint32_t>(h));
 }
 void C4JRender::StateSetEnableViewportClipPlanes(bool) {}
 void C4JRender::StateSetTexGenCol(int, float, float, float, float, bool) {}

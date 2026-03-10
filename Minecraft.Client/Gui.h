@@ -7,11 +7,12 @@ class ItemRenderer;
 
 class Gui : public GuiComponent
 {
+public:
+    static ItemRenderer *itemRenderer;
 private:
 	// 4J-PB - this doesn't account for the safe zone, and the indent applied to messages
 	//static const int MAX_MESSAGE_WIDTH = 320;
 	static const int m_iMaxMessageWidth = 280;
-    static ItemRenderer *itemRenderer;
     vector<GuiMessage> guiMessages[XUSER_MAX_COUNT];
     Random *random;
 

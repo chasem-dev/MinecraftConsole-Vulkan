@@ -74,6 +74,11 @@ void UIControl_Base::setLabel(const string &label)
 
 const wchar_t* UIControl_Base::getLabel()
 {
+#if defined(__APPLE__)
+	// On Apple, Iggy is stubbed — GetLabel returns empty.  Just return the
+	// label that was stored by init() / setLabel().
+	return m_label.c_str();
+#else
 	IggyDataValue result;
 	IggyResult out = IggyPlayerCallMethodRS ( m_parentScene->getMovie() , &result, getIggyValuePath() , m_funcGetLabel , 0 , NULL );
 
@@ -83,6 +88,7 @@ const wchar_t* UIControl_Base::getLabel()
 	}
 
 	return m_label.c_str();
+#endif
 }
 
 void UIControl_Base::setAllPossibleLabels(int labelCount, wchar_t labels[][256])

@@ -249,6 +249,36 @@ UIScene_CreateWorldMenu::~UIScene_CreateWorldMenu()
 {
 }
 
+bool UIScene_CreateWorldMenu::appleIsGameModeSurvival() const
+{
+	return m_bGameModeSurvival;
+}
+
+int UIScene_CreateWorldMenu::appleGetDifficulty() const
+{
+	return app.GetGameSettings(m_iPad, eGameSetting_Difficulty);
+}
+
+wstring UIScene_CreateWorldMenu::appleGetDifficultyText() const
+{
+	return app.GetString(m_iDifficultyTitleSettingA[appleGetDifficulty()]);
+}
+
+bool UIScene_CreateWorldMenu::appleIsOnlineGame() const
+{
+	return m_MoreOptionsParams.bOnlineGame;
+}
+
+bool UIScene_CreateWorldMenu::appleIsInviteOnly() const
+{
+	return m_MoreOptionsParams.bInviteOnly;
+}
+
+bool UIScene_CreateWorldMenu::appleAllowsFriendsOfFriends() const
+{
+	return m_MoreOptionsParams.bAllowFriendsOfFriends;
+}
+
 void UIScene_CreateWorldMenu::updateTooltips()
 {
 	ui.SetTooltips( DEFAULT_XUI_MENU_USER, IDS_TOOLTIPS_SELECT,IDS_TOOLTIPS_BACK);
@@ -413,6 +443,16 @@ void UIScene_CreateWorldMenu::handleInput(int iPad, int key, bool repeat, bool p
 					}
 					else if (sel == 3)
 					{
+						int difficulty = appleGetDifficulty();
+						handleSliderMove((F64)eControl_Difficulty, (F64)((difficulty + 1) % 4));
+						ui.PlayUISFX(eSFX_Press);
+					}
+					else if (sel == 4)
+					{
+						handlePress((F64)eControl_MoreOptions, 0);
+					}
+					else if (sel == 5)
+					{
 						handlePress((F64)eControl_NewWorld, 0);
 					}
 				}
@@ -420,9 +460,33 @@ void UIScene_CreateWorldMenu::handleInput(int iPad, int key, bool repeat, bool p
 				{
 					int sel = AppleMouse_GetCreateWorldSelected();
 					if (key == ACTION_MENU_UP   && sel > 0) sel--;
-					if (key == ACTION_MENU_DOWN && sel < 3) sel++;
+					if (key == ACTION_MENU_DOWN && sel < 5) sel++;
 					AppleMouse_SetCreateWorldSelected(sel);
 					ui.PlayUISFX(eSFX_Press);
+				}
+				else if (key == ACTION_MENU_LEFT || key == ACTION_MENU_RIGHT)
+				{
+					int sel = AppleMouse_GetCreateWorldSelected();
+					if (sel == 2)
+					{
+						handlePress((F64)eControl_GameModeToggle, 0);
+						AppleMouse_SetCreateWorldSurvival(m_bGameModeSurvival);
+						ui.PlayUISFX(eSFX_Press);
+					}
+					else if (sel == 3)
+					{
+						int difficulty = appleGetDifficulty();
+						if (key == ACTION_MENU_LEFT && difficulty > 0)
+						{
+							handleSliderMove((F64)eControl_Difficulty, (F64)(difficulty - 1));
+							ui.PlayUISFX(eSFX_Press);
+						}
+						else if (key == ACTION_MENU_RIGHT && difficulty < 3)
+						{
+							handleSliderMove((F64)eControl_Difficulty, (F64)(difficulty + 1));
+							ui.PlayUISFX(eSFX_Press);
+						}
+					}
 				}
 			}
 #else

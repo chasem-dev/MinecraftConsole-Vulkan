@@ -112,9 +112,13 @@ void GuiComponent::blit(int x, int y, int sx, int sy, int w, int h)
     Tesselator *t = Tesselator::getInstance();
     t->begin();
 
-	// This is a bit of a mystery. In general this ought to be 0.5 to match the centre of texels & pixels in the DX9 version of things. However, when scaling the GUI by a factor of 1.5, I'm
-	// really not sure how exactly point sampled rasterisation works, but when shifting by 0.5 we get a discontinuity down the diagonal of quads. Setting this shift to 0.75 in all cases seems to work fine.
+	// DX9 needs a half-pixel shift to align texel centers with pixel centers.
+	// Vulkan/OpenGL do not — pixel centers are already at half-integers.
+#if defined(__APPLE__)
+	const float extraShift = 0.0f;
+#else
 	const float extraShift = 0.75f;
+#endif
 
 	// 4J - subtracting extraShift (actual screen pixels, so need to compensate for physical & game width) from each x & y coordinate to compensate for centre of pixels in directx vs openGL
 	float dx = ( extraShift * (float)Minecraft::GetInstance()->width ) / (float)Minecraft::GetInstance()->width_phys;

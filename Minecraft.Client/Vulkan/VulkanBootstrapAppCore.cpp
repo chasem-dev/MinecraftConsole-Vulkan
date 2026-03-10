@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 
 #include <algorithm>
+#include <cstring>
 #include <iostream>
 #include <set>
 #include <stdexcept>
@@ -142,6 +143,29 @@ void VulkanBootstrapApp::beginFrame()
   std::lock_guard<std::mutex> lock(frameDataMutex_);
   frameVertices_.clear();
   frameBatches_.clear();
+  if (prevFrameVertexCount_ > 0)
+  {
+    frameVertices_.reserve(prevFrameVertexCount_);
+  }
+  if (prevFrameBatchCount_ > 0)
+  {
+    frameBatches_.reserve(prevFrameBatchCount_);
+  }
+}
+
+VulkanBootstrapApp::FrameStats VulkanBootstrapApp::getFrameStats() const
+{
+  FrameStats stats = frameStats_;
+  if (physicalDevice_ != VK_NULL_HANDLE)
+  {
+    VkPhysicalDeviceProperties properties {};
+    vkGetPhysicalDeviceProperties(physicalDevice_, &properties);
+    std::strncpy(stats.gpuName, properties.deviceName, sizeof(stats.gpuName) - 1);
+    stats.gpuName[sizeof(stats.gpuName) - 1] = '\0';
+  }
+  stats.swapchainWidth = swapchainExtent_.width;
+  stats.swapchainHeight = swapchainExtent_.height;
+  return stats;
 }
 
 void VulkanBootstrapApp::submitVertices(
@@ -150,7 +174,8 @@ void VulkanBootstrapApp::submitVertices(
   size_t count,
   ShaderVariant variant,
   const float mvp[16],
-  const RenderState &state)
+  const RenderState &state,
+  const float *colorModulation)
 {
   if (vertices == nullptr || count == 0)
   {
@@ -158,6 +183,43 @@ void VulkanBootstrapApp::submitVertices(
   }
 
   std::lock_guard<std::mutex> lock(frameDataMutex_);
+
+  std::array<float, 16> mvpArray {};
+  if (mvp != nullptr)
+  {
+    std::copy(mvp, mvp + 16, mvpArray.begin());
+  }
+
+  // Try to merge with previous batch when state matches and vertices are
+  // contiguous.  This collapses many small draws (common in chunk replay and
+  // UI) into fewer GPU draw calls.
+  if (colorModulation == nullptr && !frameBatches_.empty())
+  {
+    DrawBatch &last = frameBatches_.back();
+    if (last.clearFlags == 0 &&
+        last.topology == topology &&
+        last.shaderVariant == variant &&
+        last.renderState.blendMode == state.blendMode &&
+        last.renderState.depthTestEnabled == state.depthTestEnabled &&
+        last.renderState.depthWriteEnabled == state.depthWriteEnabled &&
+        last.renderState.cullEnabled == state.cullEnabled &&
+        last.renderState.cullClockwise == state.cullClockwise &&
+        last.renderState.textureIndex == state.textureIndex &&
+        last.mvp == mvpArray &&
+        last.firstVertex + last.vertexCount == static_cast<uint32_t>(frameVertices_.size()) &&
+        last.viewportX == currentViewportX_ &&
+        last.viewportY == currentViewportY_ &&
+        last.viewportWidth == currentViewportWidth_ &&
+        last.viewportHeight == currentViewportHeight_)
+    {
+      last.vertexCount += static_cast<uint32_t>(count);
+      const size_t offset = frameVertices_.size();
+      frameVertices_.resize(offset + count);
+      std::memcpy(&frameVertices_[offset], vertices, count * sizeof(Vertex));
+      return;
+    }
+  }
+
   DrawBatch batch;
   batch.topology = topology;
   batch.firstVertex = static_cast<uint32_t>(frameVertices_.size());
@@ -168,12 +230,26 @@ void VulkanBootstrapApp::submitVertices(
   batch.viewportY = currentViewportY_;
   batch.viewportWidth = currentViewportWidth_;
   batch.viewportHeight = currentViewportHeight_;
-  if (mvp != nullptr)
-  {
-    std::copy(mvp, mvp + batch.mvp.size(), batch.mvp.begin());
-  }
+  batch.mvp = mvpArray;
   frameBatches_.push_back(batch);
-  frameVertices_.insert(frameVertices_.end(), vertices, vertices + count);
+
+  const size_t offset = frameVertices_.size();
+  frameVertices_.resize(offset + count);
+  if (colorModulation != nullptr)
+  {
+    for (size_t i = 0; i < count; ++i)
+    {
+      frameVertices_[offset + i] = vertices[i];
+      frameVertices_[offset + i].color[0] *= colorModulation[0];
+      frameVertices_[offset + i].color[1] *= colorModulation[1];
+      frameVertices_[offset + i].color[2] *= colorModulation[2];
+      frameVertices_[offset + i].color[3] *= colorModulation[3];
+    }
+  }
+  else
+  {
+    std::memcpy(&frameVertices_[offset], vertices, count * sizeof(Vertex));
+  }
 }
 
 void VulkanBootstrapApp::requestClear(uint32_t flags)

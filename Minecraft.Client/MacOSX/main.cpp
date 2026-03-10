@@ -25,9 +25,11 @@
 #include <filesystem>
 #include <signal.h>
 #include <execinfo.h>
+#include <chrono>
 #include <cstdlib>
 #include <cstring>
 #include <cwchar>
+#include <mach/mach.h>
 
 // Bridge: Language::getElement() calls this to look up strings from app's StringTable
 // Access via friend or by exposing a helper on CMinecraftApp
@@ -43,6 +45,12 @@ static Minecraft *g_pMinecraft = nullptr;
 
 double g_cursorX = 0.0;
 double g_cursorY = 0.0;
+
+// Frame timing for F3 debug overlay: [0]=total [1]=run_middle [2]=ui+render [3]=present
+double g_appleFrameTimings[4] = {};
+// Game timing breakdown: [0]=ticks [1]=render [2]=lights
+double g_appleGameTimings[3] = {};
+size_t g_appleProcessRSS = 0;
 
 // ---- Mouse grab & delta tracking for in-game look ----
 static bool   g_appleMouseGrabbed = false;
@@ -444,8 +452,15 @@ int main()
 
     // ---- Main game loop (mirrors Windows64 frame loop) ----
     bool lastGameStarted = app.GetGameStarted();
+
+    // Frame timing globals for F3 debug overlay
+    extern double g_appleFrameTimings[4]; // [0]=total [1]=run_middle [2]=ui+render [3]=present
+    extern size_t g_appleProcessRSS;
+
     while (!glfwWindowShouldClose(window) && pMinecraft->running)
     {
+      auto loopStart = std::chrono::high_resolution_clock::now();
+
       AppleKeyboard_ClearEdges();
       // Note: mouse deltas are NOT cleared here — they accumulate across frames
       // and are cleared in Input::tick() after being consumed (20 tps < frame rate).
@@ -478,6 +493,7 @@ int main()
         lastGameStarted = gameStarted;
       }
 
+      auto gameLogicStart = std::chrono::high_resolution_clock::now();
       if (gameStarted)
       {
         pMinecraft->run_middle();
@@ -512,13 +528,36 @@ int main()
         // No manual clear needed — Vulkan render pass clears to clearColour.
       }
 
+      auto gameLogicEnd = std::chrono::high_resolution_clock::now();
+
       if (pMinecraft->soundEngine)
         pMinecraft->soundEngine->playMusicTick();
 
+      auto uiRenderStart = std::chrono::high_resolution_clock::now();
       ui.tick();
       ui.render();
+      auto uiRenderEnd = std::chrono::high_resolution_clock::now();
 
+      auto presentStart = std::chrono::high_resolution_clock::now();
       RenderManager.Present();
+      auto presentEnd = std::chrono::high_resolution_clock::now();
+
+      auto loopEnd = std::chrono::high_resolution_clock::now();
+      g_appleFrameTimings[0] = std::chrono::duration<double, std::milli>(loopEnd - loopStart).count();
+      g_appleFrameTimings[1] = std::chrono::duration<double, std::milli>(gameLogicEnd - gameLogicStart).count();
+      g_appleFrameTimings[2] = std::chrono::duration<double, std::milli>(uiRenderEnd - uiRenderStart).count();
+      g_appleFrameTimings[3] = std::chrono::duration<double, std::milli>(presentEnd - presentStart).count();
+
+      // Sample process RSS every ~60 frames
+      static int rssCounter = 0;
+      if (++rssCounter >= 60)
+      {
+        rssCounter = 0;
+        struct mach_task_basic_info info;
+        mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
+        if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) == KERN_SUCCESS)
+          g_appleProcessRSS = info.resident_size;
+      }
 
       ui.CheckMenuDisplayed();
       app.HandleXuiActions();

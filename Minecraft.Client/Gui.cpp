@@ -27,11 +27,7 @@
 #include "../Minecraft.World/net.minecraft.world.h"
 #include "../Minecraft.World/LevelChunk.h"
 #include "../Minecraft.World/Biome.h"
-#define RENDER_HUD 0
-//#ifndef _XBOX
-//#undef RENDER_HUD
-//#define RENDER_HUD 1
-//#endif
+#define RENDER_HUD 1
 
 float Gui::currentGuiBlendFactor = 1.0f;	// 4J added
 float Gui::currentGuiScaleFactor = 1.0f;	// 4J added
@@ -103,9 +99,16 @@ void Gui::render(float a, bool mouseFree, int xMouse, int yMouse)
 	{
 	case C4JRender::VIEWPORT_TYPE_FULLSCREEN:
 		// single player
+#if defined(__APPLE__)
+		// No TV overscan on macOS — minimal safezone
+		iSafezoneXHalf = 0;
+		iSafezoneYHalf = 0;
+		iTooltipsYOffset = 40 + splitYOffset;
+#else
 		iSafezoneXHalf = screenWidth/20; // 5%
 		iSafezoneYHalf = screenHeight/20; // 5%
 		iTooltipsYOffset=40+splitYOffset;
+#endif
 		break;
 	case C4JRender::VIEWPORT_TYPE_SPLIT_TOP:
 		iSafezoneXHalf = screenWidth/10; // 5%  (need to treat the whole screen is 2x this screen)
@@ -781,6 +784,9 @@ void Gui::render(float a, bool mouseFree, int xMouse, int yMouse)
     if (minecraft->options->renderDebug)
 	{
         glPushMatrix();
+#if defined(__APPLE__)
+        glScalef(0.75f, 0.75f, 1.0f);
+#endif
         if (Minecraft::warezTime > 0) glTranslatef(0, 32, 0);
         font->drawShadow(ClientConstants::VERSION_STRING + L" (" + minecraft->fpsString + L")", iSafezoneXHalf+2, 20, 0xffffff);
         font->drawShadow(L"Seed: " + _toString<__int64>(minecraft->level->getLevelData()->getSeed() ), iSafezoneXHalf+2, 32 + 00, 0xffffff);
@@ -850,6 +856,76 @@ void Gui::render(float a, bool mouseFree, int xMouse, int yMouse)
 				font,
 				L"b: " + biome->m_name + L" (" + _toString<int>(biome->id) + L")", iSafezoneXHalf+2, iYPos, 0xe0e0e0);
 		}
+
+#if defined(__APPLE__)
+		// ---- Left side: Vulkan + frame timing breakdown ----
+		iYPos += 14;
+		{
+			extern double g_appleFrameTimings[4];
+			extern double g_appleGameTimings[3];
+			auto vkStats = RenderManager.GetVulkanDebugStats();
+
+			drawString(font, L"--- Frame Timing ---", iSafezoneXHalf+2, iYPos, 0x00ff00);
+			iYPos += 10;
+
+			wchar_t buf[256];
+			swprintf(buf, 256, L"Total: %.1fms  Game: %.1fms  UI: %.1fms  Present: %.1fms",
+				g_appleFrameTimings[0], g_appleFrameTimings[1], g_appleFrameTimings[2], g_appleFrameTimings[3]);
+			drawString(font, wstring(buf), iSafezoneXHalf+2, iYPos, 0xe0e0e0);
+			iYPos += 10;
+
+			swprintf(buf, 256, L"  Ticks: %.1fms  Render: %.1fms  Lights: %.1fms",
+				g_appleGameTimings[0], g_appleGameTimings[1], g_appleGameTimings[2]);
+			drawString(font, wstring(buf), iSafezoneXHalf+2, iYPos, 0xe0e0e0);
+			iYPos += 10;
+
+			swprintf(buf, 256, L"VK drawFrame: %.1fms  Fence wait: %.1fms", vkStats.drawFrameMs, vkStats.fenceWaitMs);
+			drawString(font, wstring(buf), iSafezoneXHalf+2, iYPos, 0xe0e0e0);
+			iYPos += 10;
+
+			drawString(font, L"Verts: " + _toString<unsigned int>(vkStats.vertexCount) + L"  Batches: " + _toString<unsigned int>(vkStats.batchCount) + L"  Textures: " + _toString<unsigned int>(vkStats.textureCount), iSafezoneXHalf+2, iYPos, 0xe0e0e0);
+
+			// ---- Right side: GPU, display, memory ----
+			// screenWidth is in unscaled coords; we're in 0.75x scaled space
+			int rX = (int)(screenWidth / 0.75f) - iSafezoneXHalf - 2;
+			int rY = 20;
+
+			// GPU name
+			wstring gpuStr = L"GPU: ";
+			for (const char *p = vkStats.gpuName; *p; ++p)
+				gpuStr += (wchar_t)*p;
+			drawString(font, gpuStr, rX - font->width(gpuStr), rY, 0xe0e0e0);
+			rY += 10;
+
+			// Display info
+			wstring dispStr = L"Display: " + _toString<unsigned int>(vkStats.swapchainWidth) + L"x" + _toString<unsigned int>(vkStats.swapchainHeight);
+			wstring presentStr = L"  Present: ";
+			for (const char *p = vkStats.presentModeName; *p; ++p)
+				presentStr += (wchar_t)*p;
+			dispStr += presentStr;
+			drawString(font, dispStr, rX - font->width(dispStr), rY, 0xe0e0e0);
+			rY += 10;
+
+			// Swapchain
+			wstring swapStr = L"Swapchain: " + _toString<unsigned int>(vkStats.swapchainImageCount) + L" images";
+			drawString(font, swapStr, rX - font->width(swapStr), rY, 0xe0e0e0);
+			rY += 10;
+
+			// Process memory (RSS)
+			extern size_t g_appleProcessRSS;
+			if (g_appleProcessRSS > 0)
+			{
+				unsigned int rssMB = (unsigned int)(g_appleProcessRSS / (1024 * 1024));
+				wstring memStr = L"Memory: " + _toString<unsigned int>(rssMB) + L" MB";
+				drawString(font, memStr, rX - font->width(memStr), rY, 0xe0e0e0);
+				rY += 10;
+			}
+
+			// Renderer identifier
+			wstring rendStr = L"Vulkan / MoltenVK (macOS)";
+			drawString(font, rendStr, rX - font->width(rendStr), rY, 0xe0e0e0);
+		}
+#endif
 
         glPopMatrix();
     }

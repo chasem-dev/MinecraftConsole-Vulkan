@@ -12,9 +12,17 @@
 #include "../Minecraft.h"
 #include "../Textures.h"
 #include "../Font.h"
+#include "../Gui.h"
+#include "../ItemRenderer.h"
+#include "../Lighting.h"
 #include "../ProgressRenderer.h"
 #include "../Common/UI/UI.h"
+#include "../Common/UI/UIScene_SettingsAudioMenu.h"
 #include "../Vulkan/Vulkan_UIController.h"
+
+#include "../MultiplayerLocalPlayer.h"
+#include "../../Minecraft.World/InventoryMenu.h"
+#include "../../Minecraft.World/Slot.h"
 
 #include <chrono>
 #include <cctype>
@@ -35,7 +43,7 @@ static int  g_appleHoveredControlId = -1;
 static int  g_appleHoveredScene     = -1;  // EUIScene as int
 static int  g_mainMenuSelectedIdx   = 0;   // keyboard-tracked selection (0-5)
 static int  g_loadOrJoinSelectedIdx = 0;   // keyboard-tracked selection for LoadOrJoin
-static int  g_createWorldSelectedIdx = 3;  // keyboard-tracked selection for CreateWorld (0=Name, 1=Seed, 2=GameMode, 3=CreateWorld)
+static int  g_createWorldSelectedIdx = 0;  // keyboard-tracked selection for CreateWorld rows
 static bool g_createWorldSurvival  = true; // mirrors m_bGameModeSurvival for draw code
 static int  g_pauseMenuSelectedIdx  = 0;   // keyboard-tracked selection for PauseMenu (0-2)
 
@@ -187,7 +195,10 @@ Iggy *IggyPlayerCreateFromMemory(void const *, U32, IggyPlayerConfig *)
   return reinterpret_cast<Iggy *>(player);
 }
 
-void IggyPlayerDestroy(Iggy *player) { delete toFakePlayer(player); }
+void IggyPlayerDestroy(Iggy *player)
+{
+  if (player != nullptr) delete toFakePlayer(player);
+}
 
 IggyLibrary IggyLibraryCreateFromMemoryUTF16(IggyUTF16 const *name, void const *, U32, IggyPlayerConfig *)
 {
@@ -728,8 +739,13 @@ static void ensureSplashLoaded()
   }
 }
 
+static bool g_wasShowingLoadingScreen = false;
+
 static void drawMainMenuScene(Tesselator *t, Textures *textures, Font *font, float w, float h)
 {
+  // Don't draw main menu while the loading screen is/was active
+  if (g_wasShowingLoadingScreen || app.GetGameStarted()) return;
+
   const float s = floorf(h / 270.0f);
   const float gw = w / s, gh = h / s;
 
@@ -1042,6 +1058,113 @@ static void drawSettingsOptionsScene(Tesselator *t, Textures *textures, Font *fo
   }
 }
 
+// ---- SettingsGraphicsMenu scene (Settings -> Graphics) ----
+static void drawSettingsGraphicsScene(Tesselator *t, Textures *textures, Font *font, float w, float h, UIScene_SettingsGraphicsMenu *scene)
+{
+  if (textures == nullptr || font == nullptr || scene == nullptr)
+  {
+    return;
+  }
+
+  const float s = floorf(h / 270.0f);
+  const float gw = w / s;
+  const float gh = h / s;
+  const int rowCount = scene->appleGetVisibleRowCount();
+
+  float panelX = 0.0f;
+  float panelY = 0.0f;
+  float panelW = 360.0f;
+  float panelH = 44.0f + (float)rowCount * 24.0f + 14.0f;
+  panelX = (gw - panelW) * 0.5f;
+  panelY = (gh - panelH) * 0.5f + 12.0f;
+
+  glDisable(GL_TEXTURE_2D);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  drawDialogBox(t, panelX, panelY, panelW, panelH, s, 0.10f, 0.10f, 0.10f, 0.82f, 0.40f, 0.40f, 0.40f);
+  drawMenuPanelTitle(font, app.GetString(IDS_GRAPHICS), panelX + panelW * 0.5f, panelY + 12.0f, s);
+
+  const float rowX = panelX + 18.0f;
+  const float rowY = panelY + 28.0f;
+  const int rowW = (int)(panelW - 36.0f);
+  const int rowH = 20;
+
+  int hoverIndex = -1;
+  for (int i = 0; i < rowCount; ++i)
+  {
+    if (isMouseOverGameRect(rowX, rowY + (float)i * 24.0f, (float)rowW, (float)rowH, s, w, h))
+    {
+      hoverIndex = i;
+      break;
+    }
+  }
+
+  if (hoverIndex >= 0)
+  {
+    scene->appleSetSelectedIndex(hoverIndex);
+    g_appleHoveredControlId = scene->appleGetControlIdForVisibleRow(hoverIndex);
+    g_appleHoveredScene = (int)eUIScene_SettingsGraphicsMenu;
+  }
+
+  for (int i = 0; i < rowCount; ++i)
+  {
+    wstring label = scene->appleGetLabelForVisibleRow(i);
+    int yImage = i == scene->appleGetSelectedIndex() ? 2 : 1;
+    drawRealButton(t, textures, font, rowX, rowY + (float)i * 24.0f, rowW, rowH, label, s, yImage);
+  }
+}
+
+// ---- SettingsAudioMenu scene ----
+static void drawSettingsAudioScene(Tesselator *t, Textures *textures, Font *font, float w, float h, UIScene_SettingsAudioMenu *scene)
+{
+  if (textures == nullptr || font == nullptr || scene == nullptr) return;
+
+  const float s = floorf(h / 270.0f);
+  const float gw = w / s;
+  const float gh = h / s;
+  const int rowCount = scene->appleGetVisibleRowCount();
+
+  float panelW = 360.0f;
+  float panelH = 44.0f + (float)rowCount * 24.0f + 14.0f;
+  float panelX = (gw - panelW) * 0.5f;
+  float panelY = (gh - panelH) * 0.5f + 12.0f;
+
+  glDisable(GL_TEXTURE_2D);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  drawDialogBox(t, panelX, panelY, panelW, panelH, s, 0.10f, 0.10f, 0.10f, 0.82f, 0.40f, 0.40f, 0.40f);
+  drawMenuPanelTitle(font, L"Audio", panelX + panelW * 0.5f, panelY + 12.0f, s);
+
+  const float rowX = panelX + 18.0f;
+  const float rowY = panelY + 28.0f;
+  const int rowW = (int)(panelW - 36.0f);
+  const int rowH = 20;
+
+  int hoverIndex = -1;
+  for (int i = 0; i < rowCount; ++i)
+  {
+    if (isMouseOverGameRect(rowX, rowY + (float)i * 24.0f, (float)rowW, (float)rowH, s, w, h))
+    {
+      hoverIndex = i;
+      break;
+    }
+  }
+
+  if (hoverIndex >= 0)
+  {
+    scene->appleSetSelectedIndex(hoverIndex);
+    g_appleHoveredControlId = scene->appleGetControlIdForVisibleRow(hoverIndex);
+    g_appleHoveredScene = (int)eUIScene_SettingsAudioMenu;
+  }
+
+  for (int i = 0; i < rowCount; ++i)
+  {
+    wstring label = scene->appleGetLabelForVisibleRow(i);
+    int yImage = i == scene->appleGetSelectedIndex() ? 2 : 1;
+    drawRealButton(t, textures, font, rowX, rowY + (float)i * 24.0f, rowW, rowH, label, s, yImage);
+  }
+}
+
 // ---- LoadOrJoinMenu scene (Play Game -> world list) ----
 static void drawLoadOrJoinScene(Tesselator *t, Textures *textures, Font *font, float w, float h)
 {
@@ -1090,57 +1213,83 @@ static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, 
 
   drawDirtBackground(t, textures, w, h);
 
-  glEnable(GL_TEXTURE_2D);
-  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-  glPushMatrix();
-  glScalef(s, s, 1.0f);
-  const wstring title = L"Create New World";
-  font->drawShadow(title, (int)((gw - (float)font->width(title)) * 0.5f), 20, 0xFFFFFF);
-
   const wstring worldName = (scene != nullptr && !scene->appleGetWorldName().empty())
     ? scene->appleGetWorldName()
-    : L"My World";
+    : L"New World";
   const wstring seedValue = (scene != nullptr && !scene->appleGetSeed().empty())
     ? scene->appleGetSeed()
-    : L"(Random)";
+    : L"";
+  const bool isSurvival = scene != nullptr ? scene->appleIsGameModeSurvival() : g_createWorldSurvival;
+  const wstring difficultyText = scene != nullptr ? scene->appleGetDifficultyText() : L"Normal";
+  const bool isOnlineGame = scene != nullptr && scene->appleIsOnlineGame();
+  const bool isInviteOnly = scene != nullptr && scene->appleIsInviteOnly();
+  const bool allowFoF = scene != nullptr && scene->appleAllowsFriendsOfFriends();
+  g_createWorldSurvival = isSurvival;
 
-  const wstring titleName = L"World Name";
-  const wstring titleSeed = L"Seed";
-  font->drawShadow(titleName, (int)((gw - (float)font->width(titleName)) * 0.5f), 46, 0xA0A0A0);
-  font->drawShadow(titleSeed, (int)((gw - (float)font->width(titleSeed)) * 0.5f), 70, 0xA0A0A0);
+  const float panelW = 304.0f;
+  const float panelH = 226.0f;
+  const float panelX = (gw - panelW) * 0.5f;
+  const float panelY = 12.0f;
+  const float contentX = panelX + 16.0f;
+  const float contentW = panelW - 32.0f;
+  const float fieldH = 18.0f;
+  const float worldFieldY = panelY + 80.0f;
+  const float seedFieldY = panelY + 128.0f;
+  const float rowStartY = panelY + 164.0f;
+  const float rowSpacing = 24.0f;
+
+  glDisable(GL_TEXTURE_2D);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  drawDialogBox(t, panelX, panelY, panelW, panelH, s, 0.84f, 0.84f, 0.84f, 0.97f, 0.15f, 0.15f, 0.15f);
 
   extern bool AppleInput_IsKeyboardActive();
   extern const wchar_t *AppleInput_GetKeyboardTitle();
   extern const wchar_t *AppleInput_GetKeyboardText();
-  if (AppleInput_IsKeyboardActive())
+  const bool keyboardActive = AppleInput_IsKeyboardActive();
+
+  auto drawField = [&](float x, float y, float fw, const wstring &text, bool selected, bool editing)
   {
-    const wstring editingLine = wstring(AppleInput_GetKeyboardTitle()) + L": " + AppleInput_GetKeyboardText() + L"_";
-    font->drawShadow(editingLine, (int)((gw - (float)font->width(editingLine)) * 0.5f), 94, 0xFFF0A0);
-    font->drawShadow(L"Enter: Confirm   Esc: Cancel", (int)((gw - (float)font->width(L"Enter: Confirm   Esc: Cancel")) * 0.5f), 106, 0x808080);
-  }
-  glPopMatrix();
+    glDisable(GL_TEXTURE_2D);
+    if (selected)
+    {
+      drawDialogBox(t, x, y, fw, fieldH, s, 0.62f, 0.68f, 0.86f, 1.0f, 0.95f, 0.88f, 0.30f);
+    }
+    else
+    {
+      drawDialogBox(t, x, y, fw, fieldH, s, 0.72f, 0.72f, 0.72f, 1.0f, 0.52f, 0.52f, 0.52f);
+    }
 
-  const int btnW = 200, btnH = 20;
-  const float btnX = (gw - (float)btnW) * 0.5f;
-  const float startY = gh * 0.46f;
-  const float spacing = 24.0f;
-  static const int NUM_CW_BUTTONS = 4;
+    glEnable(GL_TEXTURE_2D);
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glPushMatrix();
+    glScalef(s, s, 1.0f);
+    wstring displayText = text.empty() ? L" " : text;
+    if (editing)
+    {
+      displayText = wstring(AppleInput_GetKeyboardText()) + L"_";
+    }
+    font->drawShadow(displayText, (int)(x + 6.0f), (int)(y + 5.0f), selected ? 0xF8F8F8 : 0x404040);
+    glPopMatrix();
+  };
 
-  const wstring worldNameLabel = L"World Name: " + worldName;
-  const wstring seedLabel = L"Seed: " + seedValue;
-  const wchar_t *modeLabel = g_createWorldSurvival ? L"Game Mode: Survival" : L"Game Mode: Creative";
-  const wstring btnLabels[NUM_CW_BUTTONS] = {
-    worldNameLabel,
-    seedLabel,
-    modeLabel,
-    L"Create World"
+  const float interactiveX[6] = {
+    contentX, contentX, contentX, contentX, contentX, contentX
+  };
+  const float interactiveY[6] = {
+    worldFieldY, seedFieldY, rowStartY, rowStartY + rowSpacing, rowStartY + rowSpacing * 2.0f, rowStartY + rowSpacing * 3.0f
+  };
+  const float interactiveW[6] = {
+    contentW, contentW, contentW, contentW, contentW, contentW
+  };
+  const float interactiveH[6] = {
+    fieldH, fieldH, 20.0f, 20.0f, 20.0f, 20.0f
   };
 
   int mouseHoverIdx = -1;
-  for (int i = 0; i < NUM_CW_BUTTONS; ++i)
+  for (int i = 0; i < 6; ++i)
   {
-    const float by = startY + (float)i * spacing;
-    if (isMouseOverGameRect(btnX, by, (float)btnW, (float)btnH, s, w, h))
+    if (isMouseOverGameRect(interactiveX[i], interactiveY[i], interactiveW[i], interactiveH[i], s, w, h))
     {
       mouseHoverIdx = i;
       break;
@@ -1153,55 +1302,213 @@ static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, 
     g_appleHoveredScene = (int)eUIScene_CreateWorldMenu;
   }
 
-  for (int i = 0; i < NUM_CW_BUTTONS; ++i)
+  glEnable(GL_TEXTURE_2D);
+  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+  glPushMatrix();
+  glScalef(s, s, 1.0f);
+  const wstring title = L"Create New World";
+  font->drawShadow(title, (int)((gw - (float)font->width(title)) * 0.5f), (int)(panelY - 10.0f), 0xFFFFFF);
+
+  const float checkboxX = contentX + 1.0f;
+  const float checkboxStartY = panelY + 14.0f;
+  const float checkboxSpacing = 20.0f;
+  const wchar_t *checkboxLabels[3] = {
+    L"Online game",
+    L"Invite only",
+    L"Allow friends of friends"
+  };
+  const bool checkboxValues[3] = { isOnlineGame, isInviteOnly, allowFoF };
+  for (int i = 0; i < 3; ++i)
   {
-    const float by = startY + (float)i * spacing;
-    int yImg = (i == g_createWorldSelectedIdx) ? 2 : 1;
-    drawRealButton(t, textures, font, btnX, by, btnW, btnH, btnLabels[i], s, yImg);
+    font->drawShadow(checkboxLabels[i], (int)(checkboxX + 12.0f), (int)(checkboxStartY + checkboxSpacing * (float)i), 0x9A9A9A);
+  }
+
+  font->drawShadow(L"World Name", (int)contentX, (int)(worldFieldY - 12.0f), 0x404040);
+  font->drawShadow(L"Seed for the World Generator", (int)contentX, (int)(seedFieldY - 12.0f), 0x404040);
+  font->drawShadow(L"Leave blank for a random seed", (int)contentX, (int)(seedFieldY + 22.0f), 0x707070);
+  glPopMatrix();
+
+  for (int i = 0; i < 3; ++i)
+  {
+    const float cy = checkboxStartY + checkboxSpacing * (float)i + 1.0f;
+    glDisable(GL_TEXTURE_2D);
+    drawDialogBox(t, checkboxX, cy, 8.0f, 8.0f, s, 0.86f, 0.86f, 0.86f, 1.0f, 0.65f, 0.65f, 0.65f);
+    if (checkboxValues[i])
+    {
+      glColor4f(0.38f, 0.38f, 0.38f, 1.0f);
+      t->begin();
+      t->vertex((checkboxX + 2.0f) * s, (cy + 6.0f) * s, 0.0f);
+      t->vertex((checkboxX + 6.0f) * s, (cy + 6.0f) * s, 0.0f);
+      t->vertex((checkboxX + 6.0f) * s, (cy + 2.0f) * s, 0.0f);
+      t->vertex((checkboxX + 2.0f) * s, (cy + 2.0f) * s, 0.0f);
+      t->end();
+    }
+  }
+
+  drawField(contentX, worldFieldY, contentW, worldName, g_createWorldSelectedIdx == 0,
+            keyboardActive && wcscmp(AppleInput_GetKeyboardTitle(), L"Create New World") == 0);
+  drawField(contentX, seedFieldY, contentW, seedValue, g_createWorldSelectedIdx == 1,
+            keyboardActive && wcscmp(AppleInput_GetKeyboardTitle(), L"Seed for the World Generator") == 0);
+
+  const wstring buttonLabels[4] = {
+    isSurvival ? L"Game Mode: Survival" : L"Game Mode: Creative",
+    L"Difficulty: " + difficultyText,
+    L"More Options",
+    L"Create New World"
+  };
+  const int btnW = (int)contentW;
+  const int btnH = 20;
+  for (int i = 0; i < 4; ++i)
+  {
+    int yImg = ((i + 2) == g_createWorldSelectedIdx) ? 2 : 1;
+    drawRealButton(t, textures, font, contentX, rowStartY + rowSpacing * (float)i, btnW, btnH, buttonLabels[i], s, yImg);
   }
 
   glEnable(GL_TEXTURE_2D);
   glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
   glPushMatrix();
   glScalef(s, s, 1.0f);
+  if (keyboardActive)
+  {
+    const wstring hint = L"Enter: Confirm   Esc: Cancel";
+    font->drawShadow(hint, (int)((gw - (float)font->width(hint)) * 0.5f), (int)(panelY + panelH + 5.0f), 0x808080);
+  }
   font->drawShadow(L"Esc: Back", 2, (int)(gh - 10.0f), 0x808080);
   glPopMatrix();
   glDisable(GL_TEXTURE_2D);
 }
 
 // ---- FullscreenProgress scene (loading screen) ----
+// Matches the Console Edition loading screen: panorama bg, CE logo, title,
+// progress bar with percentage, status text, and rotating game tips.
+
+static wstring g_loadingTipText;
+static std::chrono::steady_clock::time_point g_lastTipChangeTime;
+static bool g_loadingTipInitialized = false;
+// g_wasShowingLoadingScreen defined above drawMainMenuScene
+
+// Strip {*...*} controller placeholders from tip strings for plain-text rendering
+static wstring stripControllerPlaceholders(const wstring &text)
+{
+  wstring result;
+  result.reserve(text.size());
+  size_t i = 0;
+  while (i < text.size())
+  {
+    if (i + 1 < text.size() && text[i] == L'{' && text[i + 1] == L'*')
+    {
+      // Find closing *}
+      size_t end = text.find(L"*}", i + 2);
+      if (end != wstring::npos)
+      {
+        // Extract tag name for keyboard substitution
+        wstring tag = text.substr(i + 2, end - (i + 2));
+        if (tag == L"CONTROLLER_VK_A") result += L"LMB";
+        else if (tag == L"CONTROLLER_VK_B") result += L"Q";
+        // Skip other tags silently
+        i = end + 2;
+        continue;
+      }
+    }
+    result += text[i];
+    i++;
+  }
+  return result;
+}
+
 static void drawFullscreenProgressScene(Tesselator *t, Textures *textures, Font *font, float w, float h)
 {
   const float s = floorf(h / 270.0f);
   const float gw = w / s, gh = h / s;
   if (textures == nullptr || font == nullptr) return;
 
-  drawDirtBackground(t, textures, w, h);
+  // ---- Panorama background (same as title screen) ----
+  drawPanoramaBackground(t, textures, w, h);
+
+  // ---- CE Logo (smaller than main menu — ~60% size, centered near top) ----
+  int ceLogoId = loadCELogoTexture();
+  if (ceLogoId >= 0)
+  {
+    const float logoAspect = 666.0f / 375.0f;
+    const float logoGameH = 115.0f;
+    const float logoGameW = logoGameH * logoAspect;
+    const float logoX = (gw - logoGameW) * 0.5f;
+    const float logoY = 2.0f;
+
+    glEnable(GL_TEXTURE_2D);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glBindTexture(GL_TEXTURE_2D, ceLogoId);
+    float lx = logoX * s, ly = logoY * s;
+    float lw = logoGameW * s, lh = logoGameH * s;
+    t->begin();
+    t->vertexUV(lx,      ly + lh, 0.0f, 0.0f, 1.0f);
+    t->vertexUV(lx + lw, ly + lh, 0.0f, 1.0f, 1.0f);
+    t->vertexUV(lx + lw, ly,      0.0f, 1.0f, 0.0f);
+    t->vertexUV(lx,      ly,      0.0f, 0.0f, 0.0f);
+    t->end();
+  }
 
   Minecraft *mc = Minecraft::GetInstance();
   if (mc == nullptr || mc->progressRenderer == nullptr) return;
 
+  // ---- Read progress state ----
   int percent = mc->progressRenderer->getCurrentPercent();
   if (percent < 0) percent = 0;
   if (percent > 100) percent = 100;
 
   int titleId = mc->progressRenderer->getCurrentTitle();
   wstring titleText = L"Loading...";
-  if (titleId >= 0) titleText = app.GetString(titleId);
+  if (titleId >= 0)
+  {
+    LPCWSTR str = app.GetString(titleId);
+    if (str != nullptr && str[0] != L'\0') titleText = str;
+  }
 
+  wstring statusText;
+  ProgressRenderer::eProgressStringType progressType = mc->progressRenderer->getType();
+  if (progressType == ProgressRenderer::eProgressStringType_ID)
+  {
+    int statusId = mc->progressRenderer->getCurrentStatus();
+    if (statusId >= 0)
+    {
+      LPCWSTR str = app.GetString(statusId);
+      if (str != nullptr && str[0] != L'\0') statusText = str;
+    }
+  }
+  else
+  {
+    statusText = mc->progressRenderer->getProgressString();
+  }
+
+  // ---- Title text (centered, above progress bar) ----
   glEnable(GL_TEXTURE_2D);
   glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
   glPushMatrix();
   glScalef(s, s, 1.0f);
-  font->drawShadow(titleText, (int)((gw - (float)font->width(titleText)) * 0.5f), (int)(gh * 0.4f), 0xFFFFFF);
+  font->drawShadow(titleText,
+    (int)((gw - (float)font->width(titleText)) * 0.5f),
+    (int)(gh * 0.50f), 0xFFFFFF);
   glPopMatrix();
 
-  const float barW = 200.0f, barH = 10.0f;
+  // ---- Progress bar (centered, console-style) ----
+  const float barW = 200.0f, barH = 5.0f;
   const float barX = (gw - barW) * 0.5f;
-  const float barY = gh * 0.5f;
+  const float barY = gh * 0.57f;
 
+  // Bar border (dark outline)
   glDisable(GL_TEXTURE_2D);
-  glColor4f(0.2f, 0.2f, 0.2f, 1.0f);
+  glColor4f(0.08f, 0.08f, 0.08f, 1.0f);
+  t->begin();
+  t->vertex((barX - 1.0f) * s, (barY + barH + 1.0f) * s, 0.0f);
+  t->vertex((barX + barW + 1.0f) * s, (barY + barH + 1.0f) * s, 0.0f);
+  t->vertex((barX + barW + 1.0f) * s, (barY - 1.0f) * s, 0.0f);
+  t->vertex((barX - 1.0f) * s, (barY - 1.0f) * s, 0.0f);
+  t->end();
+
+  // Bar background (dark gray)
+  glColor4f(0.15f, 0.15f, 0.15f, 1.0f);
   t->begin();
   t->vertex(barX * s, (barY + barH) * s, 0.0f);
   t->vertex((barX + barW) * s, (barY + barH) * s, 0.0f);
@@ -1209,10 +1516,11 @@ static void drawFullscreenProgressScene(Tesselator *t, Textures *textures, Font 
   t->vertex(barX * s, barY * s, 0.0f);
   t->end();
 
+  // Bar fill (green, matching console)
   float fillW = barW * ((float)percent / 100.0f);
   if (fillW > 0.0f)
   {
-    glColor4f(0.3f, 0.7f, 0.3f, 1.0f);
+    glColor4f(0.31f, 0.78f, 0.31f, 1.0f);
     t->begin();
     t->vertex(barX * s, (barY + barH) * s, 0.0f);
     t->vertex((barX + fillW) * s, (barY + barH) * s, 0.0f);
@@ -1221,15 +1529,74 @@ static void drawFullscreenProgressScene(Tesselator *t, Textures *textures, Font 
     t->end();
   }
 
-  wchar_t pctBuf[16];
-  swprintf(pctBuf, 16, L"%d%%", percent);
-  wstring pctText(pctBuf);
+  // ---- Status text + percentage (below progress bar) ----
   glEnable(GL_TEXTURE_2D);
   glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
   glPushMatrix();
   glScalef(s, s, 1.0f);
-  font->drawShadow(pctText, (int)((gw - (float)font->width(pctText)) * 0.5f), (int)(barY + barH + 4.0f), 0xFFFFFF);
+
+  wstring belowBarText;
+  if (!statusText.empty())
+  {
+    wchar_t pctBuf[16];
+    swprintf(pctBuf, 16, L" %d%%", percent);
+    belowBarText = statusText + pctBuf;
+  }
+  else
+  {
+    wchar_t pctBuf[16];
+    swprintf(pctBuf, 16, L"%d%%", percent);
+    belowBarText = pctBuf;
+  }
+  font->drawShadow(belowBarText,
+    (int)((gw - (float)font->width(belowBarText)) * 0.5f),
+    (int)(barY + barH + 4.0f), 0xAAAAAA);
+
   glPopMatrix();
+
+  // ---- Rotating tips (every 7 seconds, like console) ----
+  auto now = std::chrono::steady_clock::now();
+  if (!g_loadingTipInitialized)
+  {
+    UINT tipId = app.GetNextTip();
+    LPCWSTR tipStr = app.GetString(tipId);
+    if (tipStr != nullptr && tipStr[0] != L'\0')
+      g_loadingTipText = stripControllerPlaceholders(tipStr);
+    else
+      g_loadingTipText = L"";
+    g_lastTipChangeTime = now;
+    g_loadingTipInitialized = true;
+  }
+  else
+  {
+    double elapsedMs = (double)std::chrono::duration_cast<std::chrono::milliseconds>(
+                         now - g_lastTipChangeTime).count();
+    if (elapsedMs >= 7000.0)
+    {
+      UINT tipId = app.GetNextTip();
+      LPCWSTR tipStr = app.GetString(tipId);
+      if (tipStr != nullptr && tipStr[0] != L'\0')
+        g_loadingTipText = stripControllerPlaceholders(tipStr);
+      else
+        g_loadingTipText = L"";
+      g_lastTipChangeTime = now;
+    }
+  }
+
+  if (!g_loadingTipText.empty())
+  {
+    glEnable(GL_TEXTURE_2D);
+    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+    glPushMatrix();
+    glScalef(s, s, 1.0f);
+    // Word-wrap tip text across the bottom of the screen
+    int tipAreaW = (int)(gw * 0.8f);
+    int tipX = (int)(gw * 0.1f);
+    int tipY = (int)(gh * 0.82f);
+    font->drawWordWrap(g_loadingTipText, tipX, tipY, tipAreaW, 0xFFFF55, 9999);
+    glPopMatrix();
+  }
+
   glDisable(GL_TEXTURE_2D);
 }
 
@@ -1313,6 +1680,96 @@ static void drawPauseMenuScene(Tesselator *t, Textures *textures, Font *font, fl
   }
 }
 
+// ---------------------------------------------------------------------------
+// Inventory Menu scene drawing (Apple replacement for Iggy-based InventoryMenu)
+// ---------------------------------------------------------------------------
+static void drawInventoryScene(Tesselator *t, Textures *textures, Font *font, float w, float h, UIScene *scene)
+{
+  if (textures == nullptr || font == nullptr || scene == nullptr) return;
+
+  Minecraft *mc = Minecraft::GetInstance();
+  if (mc == nullptr || mc->player == nullptr) return;
+
+  const float s = floorf(h / 270.0f);
+  const float gw = w / s, gh = h / s;
+
+  // Semi-transparent dark overlay
+  glDisable(GL_TEXTURE_2D);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  t->begin();
+  t->color(0x00, 0x00, 0x00, 0xB0);
+  t->vertexUV(0.0f, h,    0.0f, 0.0f, 0.0f);
+  t->vertexUV(w,    h,    0.0f, 0.0f, 0.0f);
+  t->vertexUV(w,    0.0f, 0.0f, 0.0f, 0.0f);
+  t->vertexUV(0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+  t->end();
+
+  // gui/inventory.png is a 256×256 spritesheet; the inventory occupies (0,0)-(176,166)
+  const float imgW = 176.0f, imgH = 166.0f;
+  const float texSize = 256.0f;
+  const float u1 = imgW / texSize;  // 0.6875
+  const float v1 = imgH / texSize;  // 0.6484375
+
+  // Center in GUI-scaled coordinate space
+  const float cx = (gw - imgW) * 0.5f;
+  const float cy = (gh - imgH) * 0.5f;
+
+  glEnable(GL_TEXTURE_2D);
+  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+  glPushMatrix();
+  glScalef(s, s, 1.0f);
+
+  // Draw inventory background from the spritesheet
+  textures->bindTexture(L"/gui/inventory.png");
+
+  t->begin();
+  t->vertexUV(cx,        cy + imgH, 0.0f, 0.0f, v1);
+  t->vertexUV(cx + imgW, cy + imgH, 0.0f, u1,   v1);
+  t->vertexUV(cx + imgW, cy,        0.0f, u1,   0.0f);
+  t->vertexUV(cx,        cy,        0.0f, 0.0f, 0.0f);
+  t->end();
+
+  // Text labels (dark gray, matching vanilla)
+  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+  font->draw(L"Crafting", (int)(cx + 88), (int)(cy + 16), 0x404040);
+  font->draw(L"Inventory", (int)(cx + 8), (int)(cy + 73), 0x404040);
+
+  // Draw items in inventory slots
+  AbstractContainerMenu *menu = mc->player->inventoryMenu;
+
+  if (menu != nullptr && Gui::itemRenderer != nullptr)
+  {
+    glEnable(GL_RESCALE_NORMAL);
+    Lighting::turnOnGui();
+
+    unsigned int slotCount = menu->getSize();
+    for (unsigned int i = 0; i < slotCount; ++i)
+    {
+      Slot *slot = menu->getSlot(i);
+      if (slot == nullptr || !slot->hasItem()) continue;
+
+      shared_ptr<ItemInstance> item = slot->getItem();
+      if (item == nullptr) continue;
+
+      // slot->x/y are pixel offsets within the 176×166 image; offset by container origin
+      int ix = (int)(cx + (float)slot->x);
+      int iy = (int)(cy + (float)slot->y);
+
+      Gui::itemRenderer->renderAndDecorateItem(font, textures, item, ix, iy);
+      Gui::itemRenderer->renderGuiItemDecorations(font, textures, item, ix, iy);
+    }
+
+    Lighting::turnOff();
+    glDisable(GL_RESCALE_NORMAL);
+  }
+
+  glPopMatrix();
+
+  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+}
+
 void IggyPlayerDraw(Iggy *player)
 {
   FakeIggyPlayer *fake = toFakePlayer(player);
@@ -1357,12 +1814,21 @@ void IggyPlayerDraw(Iggy *player)
         sceneType == eUIScene_HelpAndOptionsMenu ||
         sceneType == eUIScene_SettingsMenu ||
         sceneType == eUIScene_SettingsOptionsMenu ||
+        sceneType == eUIScene_SettingsGraphicsMenu ||
+        sceneType == eUIScene_SettingsAudioMenu ||
         sceneType == eUIScene_LoadOrJoinMenu ||
         sceneType == eUIScene_CreateWorldMenu ||
         sceneType == eUIScene_PauseMenu)
     {
       g_appleHoveredControlId = -1;
       g_appleHoveredScene = -1;
+    }
+
+    // Reset loading screen tip state when transitioning away
+    if (sceneType != eUIScene_FullscreenProgress && g_wasShowingLoadingScreen)
+    {
+      g_loadingTipInitialized = false;
+      g_wasShowingLoadingScreen = false;
     }
 
     switch (sceneType)
@@ -1387,6 +1853,14 @@ void IggyPlayerDraw(Iggy *player)
       drawSettingsOptionsScene(t, textures, font, w, h, static_cast<UIScene_SettingsOptionsMenu *>(scene));
       break;
 
+    case eUIScene_SettingsGraphicsMenu:
+      drawSettingsGraphicsScene(t, textures, font, w, h, static_cast<UIScene_SettingsGraphicsMenu *>(scene));
+      break;
+
+    case eUIScene_SettingsAudioMenu:
+      drawSettingsAudioScene(t, textures, font, w, h, static_cast<UIScene_SettingsAudioMenu *>(scene));
+      break;
+
     case eUIScene_LoadOrJoinMenu:
       drawLoadOrJoinScene(t, textures, font, w, h);
       break;
@@ -1397,10 +1871,15 @@ void IggyPlayerDraw(Iggy *player)
 
     case eUIScene_FullscreenProgress:
       drawFullscreenProgressScene(t, textures, font, w, h);
+      g_wasShowingLoadingScreen = true;
       break;
 
     case eUIScene_PauseMenu:
       drawPauseMenuScene(t, textures, font, w, h);
+      break;
+
+    case eUIScene_InventoryMenu:
+      drawInventoryScene(t, textures, font, w, h, scene);
       break;
 
     case eUIComponent_Panorama:
@@ -1653,6 +2132,35 @@ unsigned char g_profileData[XUSER_MAX_COUNT][2048] = {};
 C_4JProfile::PROFILESETTINGS g_profileSettings[XUSER_MAX_COUNT] = {};
 bool g_profileIsFullVersion = true;
 int g_primaryPad = 0;
+
+static std::string getProfileFilePath()
+{
+    const char *home = std::getenv("HOME");
+    if (!home) home = "/tmp";
+    std::string dir = std::string(home) + "/Library/Application Support/minecraft";
+    mkdir(dir.c_str(), 0755);
+    return dir + "/profile.dat";
+}
+
+static bool loadProfileFromDisk()
+{
+    std::string path = getProfileFilePath();
+    FILE *f = fopen(path.c_str(), "rb");
+    if (!f) return false;
+    fread(g_profileData, sizeof(g_profileData), 1, f);
+    fclose(f);
+    app.DebugPrintf("[MCE] Loaded profile data from %s\n", path.c_str());
+    return true;
+}
+
+static void saveProfileToDisk()
+{
+    std::string path = getProfileFilePath();
+    FILE *f = fopen(path.c_str(), "wb");
+    if (!f) return;
+    fwrite(g_profileData, sizeof(g_profileData), 1, f);
+    fclose(f);
+}
 }
 
 void C_4JProfile::Initialise(DWORD, DWORD, unsigned short, UINT, UINT, DWORD *, int iGameDefinedDataSizeX4, unsigned int *puiGameDefinedDataChangedBitmask)
@@ -1662,18 +2170,39 @@ void C_4JProfile::Initialise(DWORD, DWORD, unsigned short, UINT, UINT, DWORD *, 
     *puiGameDefinedDataChangedBitmask = 0;
   }
 
+  // Try to load saved profile data from disk first
+  bool loaded = loadProfileFromDisk();
+  bool migratedLegacyAudioDefaults = false;
+
   const size_t profileBytes = std::min<size_t>((size_t)(iGameDefinedDataSizeX4 / 4), sizeof(g_profileData[0]));
   for (int i = 0; i < XUSER_MAX_COUNT; ++i)
   {
-    std::memset(g_profileData[i], 0, sizeof(g_profileData[i]));
     std::memset(&g_profileSettings[i], 0, sizeof(g_profileSettings[i]));
-
     GAME_SETTINGS *gameSettings = reinterpret_cast<GAME_SETTINGS *>(g_profileData[i]);
+    if (loaded)
+    {
+      // Early Apple profiles accidentally left both audio sliders at zero.
+      // Treat an all-muted pair as legacy bad defaults and restore the intended 100%.
+      if (profileBytes >= sizeof(GAME_SETTINGS) &&
+          gameSettings->ucMusicVolume == 0 &&
+          gameSettings->ucSoundFXVolume == 0)
+      {
+        gameSettings->ucMusicVolume = 100;
+        gameSettings->ucSoundFXVolume = 100;
+        migratedLegacyAudioDefaults = true;
+      }
+      continue;
+    }
+
+    std::memset(g_profileData[i], 0, sizeof(g_profileData[i]));
+
     if (profileBytes < sizeof(GAME_SETTINGS))
     {
       continue;
     }
 
+    gameSettings->ucMusicVolume = 100;
+    gameSettings->ucSoundFXVolume = 100;
     gameSettings->ucMenuSensitivity = 100;
     gameSettings->ucInterfaceOpacity = 80;
     gameSettings->usBitmaskValues |= 0x0200;
@@ -1706,6 +2235,12 @@ void C_4JProfile::Initialise(DWORD, DWORD, unsigned short, UINT, UINT, DWORD *, 
     gameSettings->ucTutorialCompletion[1] = 0xFF;
     gameSettings->ucTutorialCompletion[2] = 0x0F;
     gameSettings->ucTutorialCompletion[28] |= 1 << 0;
+  }
+
+  if (migratedLegacyAudioDefaults)
+  {
+    saveProfileToDisk();
+    app.DebugPrintf("[MCE] Migrated legacy Apple profile audio defaults to 100%%");
   }
 }
 
@@ -1748,7 +2283,7 @@ void C_4JProfile::SetPrimaryPad(int pad) { g_primaryPad = pad; }
 void C_4JProfile::SetRichPresenceContextValue(int, int, int) {}
 void C_4JProfile::ShowProfileCard(int, PlayerUID) {}
 void C_4JProfile::StartTrialGame() {}
-void C_4JProfile::WriteToProfile(int, bool, bool) {}
+void C_4JProfile::WriteToProfile(int, bool, bool) { saveProfileToDisk(); }
 void C_4JProfile::Award(int, int, bool) {}
 bool C_4JProfile::CanBeAwarded(int, int) { return false; }
 

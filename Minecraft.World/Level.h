@@ -423,6 +423,9 @@ public:
 	vector<shared_ptr<Entity> > *getEntitiesOfClass(const type_info& baseClass, AABB *bb);
 	shared_ptr<Entity> getClosestEntityOfClass(const type_info& baseClass, AABB *bb, shared_ptr<Entity> source);
 	vector<shared_ptr<Entity> > getAllEntities();
+	void lockEntities();
+	void unlockEntities();
+	const vector<shared_ptr<Entity> > &getEntitiesRef();
 	void tileEntityChanged(int x, int y, int z, shared_ptr<TileEntity> te);
 //	unsigned int countInstanceOf(BaseObject::Class *clas);
 	unsigned int countInstanceOf(eINSTANCEOF clas, bool singleType, unsigned int *protectedCount = NULL, unsigned int *couldWanderCount = NULL);			// 4J added

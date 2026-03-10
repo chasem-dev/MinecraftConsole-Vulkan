@@ -69,6 +69,7 @@ add_executable(mce_vulkan_boot MACOSX_BUNDLE
   "../Apple/AppleStubs.cpp"
   "../Apple/AppleInputStubs.cpp"
   "../Apple/AppleLinkerStubs.cpp"
+  "../Apple/AppleAudio.cpp"
   "../Vulkan/4JLibs/inc/4J_Render.h"
   "../Vulkan/VulkanBootstrapApp.h"
   "../Vulkan/VulkanBootstrapAppCore.cpp"
@@ -255,5 +256,8 @@ if(APPLE)
     "-framework QuartzCore"
     "-framework Metal"
     "-framework OpenGL"
+    "-framework CoreAudio"
+    "-framework AudioToolbox"
+    "-framework AudioUnit"
   )
 endif()

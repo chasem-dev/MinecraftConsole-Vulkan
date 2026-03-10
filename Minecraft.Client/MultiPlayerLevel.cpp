@@ -494,7 +494,9 @@ shared_ptr<Entity> MultiPlayerLevel::removeEntity(int id)
 // This gets called when a chunk is unloaded, but we only do half an unload to remove entities slightly differently
 void MultiPlayerLevel::removeEntities(vector<shared_ptr<Entity> > *list)
 {
-	for(AUTO_VAR(it, list->begin()); it < list->end(); ++it)
+	if (list == NULL || list->empty()) return;
+
+	for(AUTO_VAR(it, list->begin()); it != list->end(); ++it)
 	{
 		shared_ptr<Entity> e = *it;
 

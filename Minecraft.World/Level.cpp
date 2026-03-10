@@ -3831,6 +3831,22 @@ vector<shared_ptr<Entity> > Level::getAllEntities()
 	return retVec;
 }
 
+void Level::lockEntities()
+{
+	EnterCriticalSection(&m_entitiesCS);
+}
+
+void Level::unlockEntities()
+{
+	LeaveCriticalSection(&m_entitiesCS);
+}
+
+const vector<shared_ptr<Entity> > &Level::getEntitiesRef()
+{
+	// Caller must hold lockEntities()/unlockEntities()
+	return entities;
+}
+
 
 void Level::tileEntityChanged(int x, int y, int z, shared_ptr<TileEntity> te)
 {

@@ -59,10 +59,15 @@ void UIControl_CheckBox::init(const wstring &label, int id, bool checked)
 
 bool UIControl_CheckBox::IsChecked()
 {
+#if defined(__APPLE__)
+	// On Apple, Iggy is stubbed — just return the stored value.
+	return m_bChecked;
+#else
 	rrbool checked = false;
 	IggyResult result = IggyValueGetBooleanRS ( &m_iggyPath , m_checkedProp, NULL, &checked );
 	m_bChecked = checked;
 	return checked;
+#endif
 }
 
 bool UIControl_CheckBox::IsEnabled()
@@ -84,6 +89,9 @@ void UIControl_CheckBox::SetEnable(bool enable)
 // 4J HEG - this is only ever used when required, most of this should happen in the flash
 void UIControl_CheckBox::setChecked(bool checked)
 {
+#if defined(__APPLE__)
+	m_bChecked = checked;
+#endif
  	IggyDataValue result;
  	IggyDataValue value[1];
  	value[0].type = IGGY_DATATYPE_boolean;

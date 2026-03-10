@@ -375,6 +375,12 @@ void Minecraft::init()
 	for( int i=0 ; i<4 ; ++i )
 		stats[i] = new StatsCounter();
 
+#ifdef __APPLE__
+	// Load saved stats from profile data on Apple (Windows does this via profile change callback)
+	for( int i=0 ; i<4 ; ++i )
+		stats[i]->parse(ProfileManager.GetGameDefinedProfileData(i));
+#endif
+
 	/*		4J - TODO, 4J-JEV: Unnecessary.
 	Achievements::openInventory->setDescFormatter(NULL);
 	Achievements.openInventory.setDescFormatter(new DescFormatter(){
@@ -1908,6 +1914,10 @@ void Minecraft::run_middle()
 				timer->advanceTime();
 			}
 
+#if defined(__APPLE__)
+			extern double g_appleGameTimings[3]; // [0]=ticks [1]=render [2]=lights
+			auto tickStart = System::nanoTime();
+#endif
 			//__int64 beforeTickTime = System::nanoTime();
 			for (int i = 0; i < timer->ticks; i++)
 			{
@@ -2001,6 +2011,16 @@ void Minecraft::run_middle()
 // 				SparseDataStorage::tick();		// 4J added
 			}
 			//__int64 tickDuraction = System::nanoTime() - beforeTickTime;
+#if defined(__APPLE__)
+			auto tickEnd = System::nanoTime();
+			g_appleGameTimings[0] = (double)(tickEnd - tickStart) / 1000000.0;
+			// Log spike frames to console
+			if (g_appleGameTimings[0] > 30.0)
+			{
+				fprintf(stderr, "[SPIKE] Ticks: %.1fms (%d ticks this frame) chunks=%d\n",
+					g_appleGameTimings[0], timer->ticks, Chunk::updates);
+			}
+#endif
 			MemSect(31);
 			checkGlError(L"Pre render");
 			MemSect(0);
@@ -2014,10 +2034,14 @@ void Minecraft::run_middle()
 			PIXEndNamedEvent();
 
 			PIXBeginNamedEvent(0,"Light update");
-
+#if defined(__APPLE__)
+			auto lightsStart = System::nanoTime();
+#endif
 			if (level != NULL) level->updateLights();
 			glEnable(GL_TEXTURE_2D);
-
+#if defined(__APPLE__)
+			g_appleGameTimings[2] = (double)(System::nanoTime() - lightsStart) / 1000000.0;
+#endif
 			PIXEndNamedEvent();
 
 			//        if (!Keyboard::isKeyDown(Keyboard.KEY_F7)) Display.update();		// 4J - removed
@@ -2026,6 +2050,9 @@ void Minecraft::run_middle()
 			//if (player != NULL && player->isInWall()) options->thirdPersonView = false;
 			if (player != NULL && player->isInWall()) player->SetThirdPersonView(0);
 
+	#if defined(__APPLE__)
+			auto renderStart = System::nanoTime();
+#endif
 			if (!noRender)
 			{
 				bool bFirst = true;
@@ -2084,6 +2111,34 @@ void Minecraft::run_middle()
 #endif
 			}
 			glFlush();
+#if defined(__APPLE__)
+			g_appleGameTimings[1] = (double)(System::nanoTime() - renderStart) / 1000000.0;
+			if (g_appleGameTimings[1] > 30.0)
+			{
+				fprintf(stderr, "[SPIKE] Render: %.1fms  Lights: %.1fms\n",
+					g_appleGameTimings[1], g_appleGameTimings[2]);
+			}
+			// Periodic stats every 5 seconds
+			{
+				static int frameCount = 0;
+				static double worstTotal = 0, worstTick = 0, worstRender = 0;
+				static auto lastReport = System::nanoTime();
+				double total = g_appleGameTimings[0] + g_appleGameTimings[1];
+				if (total > worstTotal) worstTotal = total;
+				if (g_appleGameTimings[0] > worstTick) worstTick = g_appleGameTimings[0];
+				if (g_appleGameTimings[1] > worstRender) worstRender = g_appleGameTimings[1];
+				frameCount++;
+				auto now = System::nanoTime();
+				if (now - lastReport > 5000000000LL)
+				{
+					extern size_t g_appleProcessRSS;
+					fprintf(stderr, "[PERF] %d frames/5s | worst: total=%.0fms tick=%.0fms render=%.0fms | RSS=%zuMB\n",
+						frameCount, worstTotal, worstTick, worstRender, g_appleProcessRSS/(1024*1024));
+					frameCount = 0; worstTotal = 0; worstTick = 0; worstRender = 0;
+					lastReport = now;
+				}
+			}
+#endif
 
 			/*	4J - removed
 			if (!Display::isActive())

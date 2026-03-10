@@ -4,7 +4,9 @@
 #include "../Minecraft.World/ByteBuffer.h"
 void glViewport(int x, int y, int w, int h)
 {
-	// We don't really need anything here because minecraft doesn't current do anything other than the default viewport
+	// No-op: the Vulkan backend manages its own full-swapchain viewport.
+	// Routing this through SetViewportRect causes the game's GUI-scale and
+	// splitscreen glViewport calls to shrink the actual render area.
 }
 
 void glTranslatef(float x,float y,float z)

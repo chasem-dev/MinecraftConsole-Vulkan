@@ -765,7 +765,9 @@ void LocalPlayer::awardStat(Stat *stat, byteArray param)
         Achievement *ach = (Achievement *) stat;
 		// 4J-PB - changed to attempt to award everytime - the award may need a storage device, so needs a primary player, and the player may not have been a primary player when they first 'got' the award
 		// so let the award manager figure it out
-        //if (!minecraft->stats[m_iPad]->hasTaken(ach))
+#ifdef __APPLE__
+        if (!minecraft->stats[m_iPad]->hasTaken(ach))
+#endif
 		{
             // 4J-PB - Don't display the java popup
 			minecraft->achievementPopup->popup(ach);

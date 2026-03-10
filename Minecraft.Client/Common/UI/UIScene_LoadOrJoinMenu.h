@@ -99,6 +99,8 @@ private:
 	int m_iSaveInfoC;
 	int m_iSaveListIndex;
 	int m_iGameListIndex;
+	bool m_bAutoNavigateToCreateWorld;
+	bool m_bSuppressAutoNavigateToCreateWorld;
 	//int *m_iConfigA; // track the texture packs that we don't have installed
 #ifndef _XBOX_ONE
 	bool m_bSaveTransferInProgress;
