@@ -1568,6 +1568,12 @@ void LevelRenderer::renderAdvancedClouds(float alpha)
 	// we don't want to do it when not necessary
 
 	bool noBFCMode = ( (yy > -h - 1) && (yy <= h + 1) );
+#if defined(__APPLE__)
+	// Apple/Vulkan uses the immediate cloud fallback below, which already
+	// decides visibility per face. Keep culling disabled to match the original
+	// no-BFC behaviour and avoid winding mismatches from the Vulkan path.
+	glDisable(GL_CULL_FACE);
+#else
 	if( noBFCMode )
 	{
 		glDisable(GL_CULL_FACE);
@@ -1576,6 +1582,7 @@ void LevelRenderer::renderAdvancedClouds(float alpha)
 	{
 		glEnable(GL_CULL_FACE);
 	}
+#endif
 
 	MemSect(31);
 	textures->bindTexture(TN_ENVIRONMENT_CLOUDS);	// 4J was L"/environment/clouds.png"
@@ -1640,7 +1647,7 @@ void LevelRenderer::renderAdvancedClouds(float alpha)
 			{
 				// 4J - reimplemented the clouds with full cube-per-texel geometry to get rid of seams. This is a huge amount more quads to render, so
 				// now using command buffers to render each section to cut CPU hit.
-#if 1
+#if !defined(__APPLE__)
 				float xx = (float)(xPos * D);
 				float zz = (float)(zPos * D);
 				float xp = xx - xoffs;
@@ -1715,32 +1722,54 @@ void LevelRenderer::renderAdvancedClouds(float alpha)
 				glLoadIdentity();
 				glMatrixMode(GL_MODELVIEW);
 #else
-
 				t->begin();
 				float xx = (float)(xPos * D);
 				float zz = (float)(zPos * D);
 				float xp = xx - xoffs;
 				float zp = zz - zoffs;
 
-
 				if (yy > -h - 1)
 				{
 					t->color(cr * 0.7f, cg * 0.7f, cb * 0.7f, 0.8f);
 					t->normal(0, -1, 0);
-					t->vertexUV((float)(xp + 0), (float)( yy + 0), (float)( zp + D), (float)( (xx + 0) * scale + uo), (float)( (zz + D) * scale + vo));
-					t->vertexUV((float)(xp + D), (float)( yy + 0), (float)( zp + D), (float)( (xx + D) * scale + uo), (float)( (zz + D) * scale + vo));
-					t->vertexUV((float)(xp + D), (float)( yy + 0), (float)( zp + 0), (float)( (xx + D) * scale + uo), (float)( (zz + 0) * scale + vo));
-					t->vertexUV((float)(xp + 0), (float)( yy + 0), (float)( zp + 0), (float)( (xx + 0) * scale + uo), (float)( (zz + 0) * scale + vo));
+					for (int zt = 0; zt < D; zt++)
+					{
+						for (int xt = 0; xt < D; xt++)
+						{
+							float u = (float)((xx + xt + 0.5f) * scale + uo);
+							float v = (float)((zz + zt + 0.5f) * scale + vo);
+							float x0 = (float)(xp + xt);
+							float x1 = x0 + 1.0f;
+							float z0 = (float)(zp + zt);
+							float z1 = z0 + 1.0f;
+							t->vertexUV(x0, (float)(yy + 0), z1, u, v);
+							t->vertexUV(x1, (float)(yy + 0), z1, u, v);
+							t->vertexUV(x1, (float)(yy + 0), z0, u, v);
+							t->vertexUV(x0, (float)(yy + 0), z0, u, v);
+						}
+					}
 				}
 
 				if (yy <= h + 1)
 				{
 					t->color(cr, cg, cb, 0.8f);
 					t->normal(0, 1, 0);
-					t->vertexUV((float)(xp + 0), (float)( yy + h - e), (float)( zp + D), (float)( (xx + 0) * scale + uo), (float)( (zz + D) * scale + vo));
-					t->vertexUV((float)(xp + D), (float)( yy + h - e), (float)( zp + D), (float)( (xx + D) * scale + uo), (float)( (zz + D) * scale + vo));
-					t->vertexUV((float)(xp + D), (float)( yy + h - e), (float)( zp + 0), (float)( (xx + D) * scale + uo), (float)( (zz + 0) * scale + vo));
-					t->vertexUV((float)(xp + 0), (float)( yy + h - e), (float)( zp + 0), (float)( (xx + 0) * scale + uo), (float)( (zz + 0) * scale + vo));
+					for (int zt = 0; zt < D; zt++)
+					{
+						for (int xt = 0; xt < D; xt++)
+						{
+							float u = (float)((xx + xt + 0.5f) * scale + uo);
+							float v = (float)((zz + zt + 0.5f) * scale + vo);
+							float x0 = (float)(xp + xt);
+							float x1 = x0 + 1.0f;
+							float z0 = (float)(zp + zt);
+							float z1 = z0 + 1.0f;
+							t->vertexUV(x0, (float)(yy + h - e), z1, u, v);
+							t->vertexUV(x1, (float)(yy + h - e), z1, u, v);
+							t->vertexUV(x1, (float)(yy + h - e), z0, u, v);
+							t->vertexUV(x0, (float)(yy + h - e), z0, u, v);
+						}
+					}
 				}
 
 				t->color(cr * 0.9f, cg * 0.9f, cb * 0.9f, 0.8f);

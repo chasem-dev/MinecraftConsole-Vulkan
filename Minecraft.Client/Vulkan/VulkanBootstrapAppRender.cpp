@@ -551,6 +551,15 @@ void VulkanBootstrapApp::createGraphicsPipeline()
         colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
         colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
       }
+      else if (blendMode == BlendMode::PreserveDestination)
+      {
+        colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+        colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+        colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+        colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+        colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+      }
 
       VkPipelineColorBlendStateCreateInfo colorBlending {};
       colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
@@ -1422,9 +1431,11 @@ uint32_t VulkanBootstrapApp::getPipelineIndex(
   bool cullEnabled,
   bool cullClockwise) const
 {
+  constexpr uint32_t kPerBlendStateCount = 16u;
+  constexpr uint32_t kBlendModeCount = static_cast<uint32_t>(BlendMode::Count);
   return
-    static_cast<uint32_t>(variant) * 48u +
-    static_cast<uint32_t>(blendMode) * 16u +
+    static_cast<uint32_t>(variant) * kBlendModeCount * kPerBlendStateCount +
+    static_cast<uint32_t>(blendMode) * kPerBlendStateCount +
     (depthTestEnabled ? 8u : 0u) +
     (depthWriteEnabled ? 4u : 0u) +
     (cullEnabled ? 2u : 0u) +

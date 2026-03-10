@@ -32,6 +32,7 @@ public:
     Opaque = 0,
     Alpha,
     Additive,
+    PreserveDestination,
     Count
   };
 
@@ -254,7 +255,12 @@ private:
   VkImageView depthImageView_ = VK_NULL_HANDLE;
   VkRenderPass renderPass_ = VK_NULL_HANDLE;
   VkPipelineLayout pipelineLayout_ = VK_NULL_HANDLE;
-  std::array<VkPipeline, 240> pipelines_ {};
+  std::array<
+    VkPipeline,
+    static_cast<size_t>(ShaderVariant::Count) *
+      static_cast<size_t>(BlendMode::Count) *
+      16u>
+    pipelines_ {};
   std::vector<VkCommandBuffer> commandBuffers_;
 
   VkBuffer vertexBuffer_ = VK_NULL_HANDLE;

@@ -78,6 +78,13 @@ UIScene_CreateWorldMenu::UIScene_CreateWorldMenu(int iPad, void *initData, UILay
 	m_pDLCPack = NULL;
 	m_bRebuildTouchBoxes = false;
 
+#if defined(__APPLE__)
+	// Apple renders this scene with a custom replacement UI, so hide the authored controls
+	// to avoid the native movie widgets bleeding through underneath our custom draw pass.
+	m_controlMainPanel.setVisible(false);
+	m_controlTexturePackPanel.setVisible(false);
+#endif
+
 	m_bMultiplayerAllowed = ProfileManager.IsSignedInLive( m_iPad ) && ProfileManager.AllowedToPlayMultiplayer(m_iPad);
 	// 4J-PB - read the settings for the online flag. We'll only save this setting if the user changed it.
 	bool bGameSetting_Online=(app.GetGameSettings(m_iPad,eGameSetting_Online)!=0);

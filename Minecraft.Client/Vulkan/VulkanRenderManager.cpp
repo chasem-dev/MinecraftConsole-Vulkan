@@ -385,15 +385,6 @@ Matrix orthographicMatrix(float left, float right, float bottom, float top, floa
   return result;
 }
 
-float normalizePrimaryTexCoord(float u)
-{
-  // Legacy 4J code signals "disable mipmapping for this vertex" by pushing the
-  // primary U coordinate into the [1, 2) range. The Vulkan path currently only
-  // uploads the base level, so we should keep the original UV rather than
-  // sampling from the wrong atlas page.
-  return u > 1.0f ? (u - 1.0f) : u;
-}
-
 // Pre-computed colour modulation factors — built once per draw call to avoid
 // repeated thread_local accesses (getThreadContext / g_activeCommandBufferIndex /
 // g_replayingCommandBuffer) inside per-vertex conversion.  When recording a
@@ -443,7 +434,9 @@ inline VulkanBootstrapApp::Vertex convertVertex(
   result.position[0] = vertex.x;
   result.position[1] = vertex.y;
   result.position[2] = vertex.z;
-  result.texCoord[0] = normalizePrimaryTexCoord(vertex.u);
+  // Uncompressed vertices use true GL texture coordinates. Preserve values
+  // above 1.0 so repeat-wrapped surfaces like clouds interpolate correctly.
+  result.texCoord[0] = vertex.u;
   result.texCoord[1] = vertex.v;
 
   // Tesselator packs color as RGBA: (R<<24 | G<<16 | B<<8 | A)
@@ -499,6 +492,12 @@ VulkanBootstrapApp::BlendMode determineBlendMode()
   if (!context.renderState.blendEnabled)
   {
     return VulkanBootstrapApp::BlendMode::Opaque;
+  }
+
+  if (context.renderState.blendSrc == GL_ZERO &&
+      context.renderState.blendDst == GL_ONE)
+  {
+    return VulkanBootstrapApp::BlendMode::PreserveDestination;
   }
 
   if (context.renderState.blendDst == GL_ONE)

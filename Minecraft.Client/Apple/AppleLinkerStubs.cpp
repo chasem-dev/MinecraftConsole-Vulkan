@@ -421,6 +421,7 @@ static void drawDialogBox(Tesselator *t, float x, float y, float bw, float bh, f
                           float fillR, float fillG, float fillB, float fillA,
                           float bordR, float bordG, float bordB)
 {
+  glDisable(GL_TEXTURE_2D);
   // Fill
   glColor4f(fillR, fillG, fillB, fillA);
   t->begin();
@@ -468,7 +469,152 @@ static void drawTexQuad(Tesselator *t, int texId, float x, float y, float qw, fl
   t->end();
 }
 
+enum AppleNineSliceIndex
+{
+  eAppleSlice_TL = 0,
+  eAppleSlice_TM,
+  eAppleSlice_TR,
+  eAppleSlice_ML,
+  eAppleSlice_MM,
+  eAppleSlice_MR,
+  eAppleSlice_BL,
+  eAppleSlice_BM,
+  eAppleSlice_BR,
+  eAppleSlice_Count
+};
+
+static bool g_createWorldChromeLoaded = false;
+static int g_scenePanelTex[eAppleSlice_Count];
+static int g_scenePanelW[eAppleSlice_Count];
+static int g_scenePanelH[eAppleSlice_Count];
+static int g_sliderTrackTex = -1;
+static int g_sliderTrackW = 0;
+static int g_sliderTrackH = 0;
+static int g_sliderButtonTex = -1;
+static int g_sliderButtonW = 0;
+static int g_sliderButtonH = 0;
+static int g_mainMenuButtonNormTex = -1;
+static int g_mainMenuButtonNormW = 0;
+static int g_mainMenuButtonNormH = 0;
+static int g_mainMenuButtonOverTex = -1;
+static int g_mainMenuButtonOverW = 0;
+static int g_mainMenuButtonOverH = 0;
+static int g_tickboxNormTex = -1;
+static int g_tickboxNormW = 0;
+static int g_tickboxNormH = 0;
+static int g_tickboxOverTex = -1;
+static int g_tickboxOverW = 0;
+static int g_tickboxOverH = 0;
+static int g_tickTex = -1;
+static int g_tickW = 0;
+static int g_tickH = 0;
+
+static void loadCreateWorldChromeTextures()
+{
+  if (g_createWorldChromeLoaded) return;
+  g_createWorldChromeLoaded = true;
+
+  const char *scenePanelPaths[eAppleSlice_Count] = {
+    "Common/Media/Graphics/PanelsAndTabs/Panel_Top_L.png",
+    "Common/Media/Graphics/PanelsAndTabs/Panel_Top_M.png",
+    "Common/Media/Graphics/PanelsAndTabs/Panel_Top_R.png",
+    "Common/Media/Graphics/PanelsAndTabs/Panel_Mid_L.png",
+    "Common/Media/Graphics/PanelsAndTabs/Panel_Mid_M.png",
+    "Common/Media/Graphics/PanelsAndTabs/Panel_Mid_R.png",
+    "Common/Media/Graphics/PanelsAndTabs/Panel_Bot_L.png",
+    "Common/Media/Graphics/PanelsAndTabs/Panel_Bot_M.png",
+    "Common/Media/Graphics/PanelsAndTabs/Panel_Bot_R.png",
+  };
+  for (int i = 0; i < eAppleSlice_Count; ++i)
+  {
+    g_scenePanelTex[i] = loadPngToTexture(scenePanelPaths[i], &g_scenePanelW[i], &g_scenePanelH[i]);
+  }
+
+  g_sliderTrackTex = loadPngToTexture(
+    "Common/Media/Graphics/Slider_Track.png",
+    &g_sliderTrackW,
+    &g_sliderTrackH);
+  g_sliderButtonTex = loadPngToTexture(
+    "Common/Media/Graphics/Slider_Button.png",
+    &g_sliderButtonW,
+    &g_sliderButtonH);
+  g_mainMenuButtonNormTex = loadPngToTexture(
+    "Common/Media/Graphics/MainMenuButton_Norm.png",
+    &g_mainMenuButtonNormW,
+    &g_mainMenuButtonNormH);
+  g_mainMenuButtonOverTex = loadPngToTexture(
+    "Common/Media/Graphics/MainMenuButton_Over.png",
+    &g_mainMenuButtonOverW,
+    &g_mainMenuButtonOverH);
+  g_tickboxNormTex = loadPngToTexture(
+    "Common/Media/Graphics/Tickbox_Norm.png",
+    &g_tickboxNormW,
+    &g_tickboxNormH);
+  g_tickboxOverTex = loadPngToTexture(
+    "Common/Media/Graphics/Tickbox_Over.png",
+    &g_tickboxOverW,
+    &g_tickboxOverH);
+  g_tickTex = loadPngToTexture(
+    "Common/Media/Graphics/Tick.png",
+    &g_tickW,
+    &g_tickH);
+}
+
+static void drawNineSlicePanel(Tesselator *t,
+                               const int texIds[eAppleSlice_Count],
+                               const int widths[eAppleSlice_Count],
+                               const int heights[eAppleSlice_Count],
+                               float x, float y, float w, float h, float s)
+{
+  if (texIds[eAppleSlice_TL] < 0 || texIds[eAppleSlice_MM] < 0) return;
+
+  const float leftW = (float)widths[eAppleSlice_TL];
+  const float rightW = (float)widths[eAppleSlice_TR];
+  const float topH = (float)heights[eAppleSlice_TL];
+  const float bottomH = (float)heights[eAppleSlice_BL];
+  const float centerW = (w - leftW - rightW) > 1.0f ? (w - leftW - rightW) : 1.0f;
+  const float centerH = (h - topH - bottomH) > 1.0f ? (h - topH - bottomH) : 1.0f;
+
+  drawTexQuad(t, texIds[eAppleSlice_TL], x, y, leftW, topH, s);
+  drawTexQuad(t, texIds[eAppleSlice_TM], x + leftW, y, centerW, topH, s);
+  drawTexQuad(t, texIds[eAppleSlice_TR], x + leftW + centerW, y, rightW, topH, s);
+
+  drawTexQuad(t, texIds[eAppleSlice_ML], x, y + topH, leftW, centerH, s);
+  drawTexQuad(t, texIds[eAppleSlice_MM], x + leftW, y + topH, centerW, centerH, s);
+  drawTexQuad(t, texIds[eAppleSlice_MR], x + leftW + centerW, y + topH, rightW, centerH, s);
+
+  drawTexQuad(t, texIds[eAppleSlice_BL], x, y + topH + centerH, leftW, bottomH, s);
+  drawTexQuad(t, texIds[eAppleSlice_BM], x + leftW, y + topH + centerH, centerW, bottomH, s);
+  drawTexQuad(t, texIds[eAppleSlice_BR], x + leftW + centerW, y + topH + centerH, rightW, bottomH, s);
+}
+
+static void drawConsoleMenuButton(Tesselator *t, Font *font, float x, float y, float w, float h,
+                                  const wstring &label, float s, bool selected)
+{
+  const int texId = selected ? g_mainMenuButtonOverTex : g_mainMenuButtonNormTex;
+  if (texId >= 0)
+  {
+    drawTexQuad(t, texId, x, y, w, h, s);
+  }
+  else
+  {
+    drawDialogBox(t, x, y, w, h, s, 0.45f, 0.45f, 0.45f, 1.0f, 0.15f, 0.15f, 0.15f);
+  }
+
+  glEnable(GL_TEXTURE_2D);
+  glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+  glPushMatrix();
+  const float textScale = 1.12f;
+  glScalef(s * textScale, s * textScale, 1.0f);
+  const int textColor = selected ? 0xFFFFFF : 0xE0E0E0;
+  const float textX = (x + w * 0.5f) / textScale - (float)font->width(label) * 0.5f;
+  const float textY = (y + h * 0.5f) / textScale - 4.0f;
+  font->drawShadow(label, (int)textX, (int)textY, textColor);
+  glPopMatrix();
+}
+
 static int loadCELogoTexture();  // forward decl — defined below panorama code
+static void drawPanoramaBackground(Tesselator *t, Textures *textures, float w, float h);
 
 static void drawSaveMessageScene(Tesselator *t, Textures *textures, Font *font, float w, float h)
 {
@@ -477,109 +623,81 @@ static void drawSaveMessageScene(Tesselator *t, Textures *textures, Font *font, 
 
   if (textures == nullptr || font == nullptr) return;
 
-  // ---- CE logo above the panel (same as MainMenu) ----
+  drawPanoramaBackground(t, textures, w, h);
+  loadCreateWorldChromeTextures();
+  loadSaveTextures();
+
+  // Recreate the original 640x480 XUI canvas at a uniform scale so the
+  // save panel occupies the same screen proportion as the console scene.
+  const float layoutScale = (gw / 640.0f) < (gh / 480.0f) ? (gw / 640.0f) : (gh / 480.0f);
+  const float layoutX = (gw - 640.0f * layoutScale) * 0.5f;
+  const float layoutY = (gh - 480.0f * layoutScale) * 0.5f;
+  const float panelW = 400.0f * layoutScale;
+  const float panelH = 280.0f * layoutScale;
+  const float panelX = layoutX + 119.0f * layoutScale;
+  const float panelY = layoutY + 130.0f * layoutScale;
+
+  if (g_scenePanelTex[eAppleSlice_TL] >= 0 && g_scenePanelTex[eAppleSlice_MM] >= 0)
   {
-    const float logoAspect = 666.0f / 375.0f;
-    const float logoGameH = 192.0f;  // 20% larger (160 * 1.2)
-    const float logoGameW = logoGameH * logoAspect;
-    const float logoX = (gw - logoGameW) * 0.5f;
-    const float logoY = -30.0f;
-    int ceLogoId = loadCELogoTexture();
-    if (ceLogoId >= 0)
-    {
-      glEnable(GL_TEXTURE_2D);
-      glEnable(GL_BLEND);
-      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-      glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-      glBindTexture(GL_TEXTURE_2D, ceLogoId);
-      float lx = logoX * s, ly = logoY * s;
-      float lw = logoGameW * s, lh = logoGameH * s;
-      t->begin();
-      t->vertexUV(lx,      ly + lh, 0.0f, 0.0f, 1.0f);
-      t->vertexUV(lx + lw, ly + lh, 0.0f, 1.0f, 1.0f);
-      t->vertexUV(lx + lw, ly,      0.0f, 1.0f, 0.0f);
-      t->vertexUV(lx,      ly,      0.0f, 0.0f, 0.0f);
-      t->end();
-    }
+    drawNineSlicePanel(t, g_scenePanelTex, g_scenePanelW, g_scenePanelH, panelX, panelY, panelW, panelH, s);
+  }
+  else
+  {
+    drawDialogBox(t, panelX, panelY, panelW, panelH, s, 0.78f, 0.78f, 0.78f, 1.0f, 0.22f, 0.22f, 0.22f);
   }
 
-  // ---- Panel: flat gray fill + thin dark border (Xbox SWF BackgroundPanel style) ----
-  const float panelW = 290.0f, panelH = 170.0f;
-  const float panelX = (gw - panelW) * 0.5f;
-  const float panelY = (gh - panelH) * 0.5f + 16.0f;  // nudge down to clear logo
-
-  glDisable(GL_TEXTURE_2D);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  // Border (1px dark gray #555555)
-  glColor4f(0.333f, 0.333f, 0.333f, 1.0f);
-  t->begin();
-  t->vertex((panelX - 1.0f) * s, (panelY + panelH + 1.0f) * s, 0.0f);
-  t->vertex((panelX + panelW + 1.0f) * s, (panelY + panelH + 1.0f) * s, 0.0f);
-  t->vertex((panelX + panelW + 1.0f) * s, (panelY - 1.0f) * s, 0.0f);
-  t->vertex((panelX - 1.0f) * s, (panelY - 1.0f) * s, 0.0f);
-  t->end();
-  // Fill (light gray #C6C6C6)
-  glColor4f(0.776f, 0.776f, 0.776f, 1.0f);
-  t->begin();
-  t->vertex(panelX * s, (panelY + panelH) * s, 0.0f);
-  t->vertex((panelX + panelW) * s, (panelY + panelH) * s, 0.0f);
-  t->vertex((panelX + panelW) * s, panelY * s, 0.0f);
-  t->vertex(panelX * s, panelY * s, 0.0f);
-  t->end();
-
-  // ---- Save icon (chest + animated bobbing arrow) ----
-  loadSaveTextures();
-  const float iconCX = gw * 0.5f;
-  const float iconY  = panelY + 10.0f;
+  const float iconW = 48.0f * layoutScale;
+  const float iconH = 73.0f * layoutScale;
+  const float iconX = panelX + 176.0f * layoutScale;
+  const float iconY = panelY + 18.0f * layoutScale;
+  const float iconCX = iconX + iconW * 0.5f;
 
   auto now = std::chrono::steady_clock::now();
   static auto startTime = now;
   double elapsed = (double)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
-  float arrowBob = (float)std::sin(elapsed / 240.0) * 3.0f;
+  float arrowBob = (float)std::sin(elapsed / 240.0) * (3.0f * layoutScale);
 
   if (g_saveArrowTexId >= 0)
   {
-    const float arrowSz = 16.0f;
-    drawTexQuad(t, g_saveArrowTexId, iconCX - arrowSz * 0.5f, iconY + arrowBob - 2.0f, arrowSz, arrowSz, s);
+    const float arrowSz = 16.0f * layoutScale;
+    drawTexQuad(t, g_saveArrowTexId, iconCX - arrowSz * 0.5f, iconY + arrowBob, arrowSz, arrowSz, s);
   }
   if (g_saveChestTexId >= 0)
   {
-    const float chestSz = 24.0f;
-    drawTexQuad(t, g_saveChestTexId, iconCX - chestSz * 0.5f, iconY + 12.0f, chestSz, chestSz, s);
+    const float chestSz = 24.0f * layoutScale;
+    drawTexQuad(t, g_saveChestTexId, iconCX - chestSz * 0.5f, iconY + 24.0f * layoutScale, chestSz, chestSz, s);
   }
 
-  // ---- Body text with word wrap (no title, matching Xbox layout) ----
-  const float pad = 16.0f;
-  float textY = iconY + 40.0f;
+  const float textX = panelX + 25.0f * layoutScale;
+  const float textY = panelY + 100.0f * layoutScale;
+  const int textW = (int)(352.0f * layoutScale);
   {
     const wstring body =
       L"This game has a level autosave feature. "
       L"When you see the icon above displayed, "
-      L"the game is saving your data."
+      L"the game is saving your data. "
       L"\nPlease do not turn off your console while this icon is on-screen.";
-    const int wrapW = (int)(panelW - pad * 2.0f);
     glEnable(GL_TEXTURE_2D);
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     glPushMatrix();
-    glTranslatef((panelX + pad) * s, textY * s, 0.0f);
+    glTranslatef(textX * s, textY * s, 0.0f);
     glScalef(s, s, 1.0f);
-    font->drawWordWrap(body, 0, 0, wrapW, 0x404040, 9999);
+    font->drawWordWrap(body, 0, 0, textW, 0x404040, 9999);
     glPopMatrix();
   }
 
-  // ---- OK button (wide, matching Xbox) ----
-  const int btnW = (int)(panelW - pad * 2.0f), btnH = 20;
-  const float btnX = panelX + pad;
-  const float btnY = panelY + panelH - (float)btnH - 10.0f;
+  const float btnX = panelX + 50.0f * layoutScale;
+  const float btnY = panelY + 218.0f * layoutScale;
+  const float btnW = 300.0f * layoutScale;
+  const float btnH = 36.0f * layoutScale;
 
-  bool hovered = isMouseOverGameRect(btnX, btnY, (float)btnW, (float)btnH, s, w, h);
+  bool hovered = isMouseOverGameRect(btnX, btnY, btnW, btnH, s, w, h);
   if (hovered)
   {
     g_appleHoveredControlId = 0;  // eControl_Confirm
     g_appleHoveredScene = (int)eUIScene_SaveMessage;
   }
-  drawRealButton(t, textures, font, btnX, btnY, btnW, btnH, L"OK", s, hovered ? 2 : 1);
+  drawConsoleMenuButton(t, font, btnX, btnY, btnW, btnH, L"OK", s, hovered);
 
   glDisable(GL_TEXTURE_2D);
   glDisable(GL_BLEND);
@@ -1210,8 +1328,8 @@ static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, 
   const float s = floorf(h / 270.0f);
   const float gw = w / s, gh = h / s;
   if (textures == nullptr || font == nullptr) return;
-
-  drawDirtBackground(t, textures, w, h);
+  drawPanoramaBackground(t, textures, w, h);
+  loadCreateWorldChromeTextures();
 
   const wstring worldName = (scene != nullptr && !scene->appleGetWorldName().empty())
     ? scene->appleGetWorldName()
@@ -1226,22 +1344,31 @@ static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, 
   const bool allowFoF = scene != nullptr && scene->appleAllowsFriendsOfFriends();
   g_createWorldSurvival = isSurvival;
 
-  const float panelW = 304.0f;
-  const float panelH = 226.0f;
+  // Match the PS3 480 Create World scene proportions/spacing.
+  const float basePanelW = 340.0f;
+  const float basePanelH = 410.0f;
+  const float maxScaleY = (gh - 42.0f) / basePanelH;
+  const float maxScaleX = (gw - 70.0f) / basePanelW;
+  const float layoutScale = maxScaleX < maxScaleY ? maxScaleX : maxScaleY;
+  const float panelW = basePanelW * layoutScale;
+  const float panelH = basePanelH * layoutScale;
   const float panelX = (gw - panelW) * 0.5f;
-  const float panelY = 12.0f;
-  const float contentX = panelX + 16.0f;
-  const float contentW = panelW - 32.0f;
-  const float fieldH = 18.0f;
-  const float worldFieldY = panelY + 80.0f;
-  const float seedFieldY = panelY + 128.0f;
-  const float rowStartY = panelY + 164.0f;
-  const float rowSpacing = 24.0f;
-
-  glDisable(GL_TEXTURE_2D);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  drawDialogBox(t, panelX, panelY, panelW, panelH, s, 0.84f, 0.84f, 0.84f, 0.97f, 0.15f, 0.15f, 0.15f);
+  const float panelY = (gh - panelH) * 0.5f;
+  const float contentX = panelX + 18.0f * layoutScale;
+  const float contentW = 304.0f * layoutScale;
+  const float fieldX = panelX + 21.0f * layoutScale;
+  const float fieldW = 298.0f * layoutScale;
+  const float fieldH = 24.0f * layoutScale;
+  const float buttonH = 36.0f * layoutScale;
+  const float worldLabelY = panelY + 93.0f * layoutScale;
+  const float worldFieldY = panelY + 111.0f * layoutScale;
+  const float seedLabelY = panelY + 147.0f * layoutScale;
+  const float seedFieldY = panelY + 167.0f * layoutScale;
+  const float randomSeedY = panelY + 203.0f * layoutScale;
+  const float modeY = panelY + 226.0f * layoutScale;
+  const float sliderY = panelY + 269.0f * layoutScale;
+  const float moreOptionsY = panelY + 312.0f * layoutScale;
+  const float createWorldY = panelY + 357.0f * layoutScale;
 
   extern bool AppleInput_IsKeyboardActive();
   extern const wchar_t *AppleInput_GetKeyboardTitle();
@@ -1250,15 +1377,41 @@ static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, 
 
   auto drawField = [&](float x, float y, float fw, const wstring &text, bool selected, bool editing)
   {
-    glDisable(GL_TEXTURE_2D);
-    if (selected)
+    const bool highlighted = selected || editing;
+
+    if (highlighted)
     {
-      drawDialogBox(t, x, y, fw, fieldH, s, 0.62f, 0.68f, 0.86f, 1.0f, 0.95f, 0.88f, 0.30f);
+      drawDialogBox(
+        t,
+        x - 2.0f * layoutScale,
+        y - 2.0f * layoutScale,
+        fw + 4.0f * layoutScale,
+        fieldH + 4.0f * layoutScale,
+        s,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.92f,
+        0.80f,
+        0.06f);
     }
-    else
-    {
-      drawDialogBox(t, x, y, fw, fieldH, s, 0.72f, 0.72f, 0.72f, 1.0f, 0.52f, 0.52f, 0.52f);
-    }
+
+    // Keep the field body simple to avoid layered-box artifacts.
+    drawDialogBox(
+      t,
+      x,
+      y,
+      fw,
+      fieldH,
+      s,
+      0.40f,
+      0.40f,
+      0.40f,
+      0.92f,
+      0.20f,
+      0.20f,
+      0.20f);
 
     glEnable(GL_TEXTURE_2D);
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
@@ -1269,21 +1422,22 @@ static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, 
     {
       displayText = wstring(AppleInput_GetKeyboardText()) + L"_";
     }
-    font->drawShadow(displayText, (int)(x + 6.0f), (int)(y + 5.0f), selected ? 0xF8F8F8 : 0x404040);
+    const float textY = y + (fieldH - 8.0f * layoutScale) * 0.5f;
+    font->drawShadow(displayText, (int)(x + 6.0f * layoutScale), (int)textY, 0xEBEBEB);
     glPopMatrix();
   };
 
   const float interactiveX[6] = {
-    contentX, contentX, contentX, contentX, contentX, contentX
+    fieldX, fieldX, contentX, contentX, contentX, contentX
   };
   const float interactiveY[6] = {
-    worldFieldY, seedFieldY, rowStartY, rowStartY + rowSpacing, rowStartY + rowSpacing * 2.0f, rowStartY + rowSpacing * 3.0f
+    worldFieldY, seedFieldY, modeY, sliderY, moreOptionsY, createWorldY
   };
   const float interactiveW[6] = {
-    contentW, contentW, contentW, contentW, contentW, contentW
+    fieldW, fieldW, contentW, contentW, contentW, contentW
   };
   const float interactiveH[6] = {
-    fieldH, fieldH, 20.0f, 20.0f, 20.0f, 20.0f
+    fieldH, fieldH, buttonH, 38.0f * layoutScale, buttonH, buttonH
   };
 
   int mouseHoverIdx = -1;
@@ -1301,17 +1455,26 @@ static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, 
     g_appleHoveredControlId = mouseHoverIdx;
     g_appleHoveredScene = (int)eUIScene_CreateWorldMenu;
   }
+  else if (g_appleHoveredScene == (int)eUIScene_CreateWorldMenu)
+  {
+    g_appleHoveredControlId = -1;
+    g_appleHoveredScene = -1;
+  }
+
+  drawNineSlicePanel(t, g_scenePanelTex, g_scenePanelW, g_scenePanelH, panelX, panelY, panelW, panelH, s);
 
   glEnable(GL_TEXTURE_2D);
   glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
   glPushMatrix();
   glScalef(s, s, 1.0f);
   const wstring title = L"Create New World";
-  font->drawShadow(title, (int)((gw - (float)font->width(title)) * 0.5f), (int)(panelY - 10.0f), 0xFFFFFF);
+  font->drawShadow(title, (int)((gw - (float)font->width(title)) * 0.5f), (int)(panelY - 18.0f), 0xFFFFFF);
 
-  const float checkboxX = contentX + 1.0f;
-  const float checkboxStartY = panelY + 14.0f;
-  const float checkboxSpacing = 20.0f;
+  const float checkboxX = panelX + 16.0f * layoutScale;
+  const float checkboxTextX = checkboxX + 20.0f * layoutScale;
+  const float checkboxStartY = panelY + 16.0f * layoutScale;
+  const float checkboxSpacing = 26.0f * layoutScale;
+  const float checkboxSize = 12.0f * layoutScale;
   const wchar_t *checkboxLabels[3] = {
     L"Online game",
     L"Invite only",
@@ -1320,54 +1483,92 @@ static void drawCreateWorldScene(Tesselator *t, Textures *textures, Font *font, 
   const bool checkboxValues[3] = { isOnlineGame, isInviteOnly, allowFoF };
   for (int i = 0; i < 3; ++i)
   {
-    font->drawShadow(checkboxLabels[i], (int)(checkboxX + 12.0f), (int)(checkboxStartY + checkboxSpacing * (float)i), 0x9A9A9A);
+    font->draw(checkboxLabels[i], (int)checkboxTextX, (int)(checkboxStartY + checkboxSpacing * (float)i), 0x4A4A4A);
   }
 
-  font->drawShadow(L"World Name", (int)contentX, (int)(worldFieldY - 12.0f), 0x404040);
-  font->drawShadow(L"Seed for the World Generator", (int)contentX, (int)(seedFieldY - 12.0f), 0x404040);
-  font->drawShadow(L"Leave blank for a random seed", (int)contentX, (int)(seedFieldY + 22.0f), 0x707070);
+  font->draw(L"World Name", (int)contentX, (int)worldLabelY, 0x3C3C3C);
+  font->draw(L"Seed for the World Generator", (int)contentX, (int)seedLabelY, 0x3C3C3C);
+  font->draw(L"Leave blank for a random seed", (int)contentX, (int)randomSeedY, 0x585858);
+
   glPopMatrix();
 
   for (int i = 0; i < 3; ++i)
   {
     const float cy = checkboxStartY + checkboxSpacing * (float)i + 1.0f;
-    glDisable(GL_TEXTURE_2D);
-    drawDialogBox(t, checkboxX, cy, 8.0f, 8.0f, s, 0.86f, 0.86f, 0.86f, 1.0f, 0.65f, 0.65f, 0.65f);
+    const int tickboxTex = g_tickboxNormTex >= 0 ? g_tickboxNormTex : -1;
+    if (tickboxTex >= 0)
+    {
+      drawTexQuad(t, tickboxTex, checkboxX, cy, checkboxSize, checkboxSize, s);
+    }
+    else
+    {
+      drawDialogBox(t, checkboxX, cy, checkboxSize, checkboxSize, s, 0.82f, 0.82f, 0.82f, 1.0f, 0.28f, 0.28f, 0.28f);
+    }
     if (checkboxValues[i])
     {
-      glColor4f(0.38f, 0.38f, 0.38f, 1.0f);
-      t->begin();
-      t->vertex((checkboxX + 2.0f) * s, (cy + 6.0f) * s, 0.0f);
-      t->vertex((checkboxX + 6.0f) * s, (cy + 6.0f) * s, 0.0f);
-      t->vertex((checkboxX + 6.0f) * s, (cy + 2.0f) * s, 0.0f);
-      t->vertex((checkboxX + 2.0f) * s, (cy + 2.0f) * s, 0.0f);
-      t->end();
+      if (g_tickTex >= 0)
+      {
+        drawTexQuad(t, g_tickTex, checkboxX - 3.0f * layoutScale, cy - 3.0f * layoutScale, 20.0f * layoutScale, 18.0f * layoutScale, s);
+      }
     }
   }
 
-  drawField(contentX, worldFieldY, contentW, worldName, g_createWorldSelectedIdx == 0,
+  drawField(fieldX, worldFieldY, fieldW, worldName, g_createWorldSelectedIdx == 0,
             keyboardActive && wcscmp(AppleInput_GetKeyboardTitle(), L"Create New World") == 0);
-  drawField(contentX, seedFieldY, contentW, seedValue, g_createWorldSelectedIdx == 1,
+  drawField(fieldX, seedFieldY, fieldW, seedValue, g_createWorldSelectedIdx == 1,
             keyboardActive && wcscmp(AppleInput_GetKeyboardTitle(), L"Seed for the World Generator") == 0);
 
-  const wstring buttonLabels[4] = {
+  const wstring buttonLabels[3] = {
     isSurvival ? L"Game Mode: Survival" : L"Game Mode: Creative",
-    L"Difficulty: " + difficultyText,
     L"More Options",
     L"Create New World"
   };
-  const int btnW = (int)contentW;
-  const int btnH = 20;
-  for (int i = 0; i < 4; ++i)
+  drawConsoleMenuButton(t, font, contentX, modeY, contentW, buttonH, buttonLabels[0], s, g_createWorldSelectedIdx == 2);
+
+  const wstring difficultyLabel = L"Difficulty: " + difficultyText;
+  const float sliderTrackW = contentW;
+  const float sliderTrackH = (g_sliderTrackH > 0 ? (float)g_sliderTrackH : 16.0f) * layoutScale;
+  const float sliderTrackX = contentX;
+  const float sliderTrackY = sliderY + (38.0f * layoutScale - sliderTrackH) * 0.5f;
+  const float sliderButtonW = (g_sliderButtonW > 0 ? (float)g_sliderButtonW : 12.0f) * layoutScale;
+  const float sliderButtonH = (g_sliderButtonH > 0 ? (float)g_sliderButtonH : 32.0f) * layoutScale;
+  if (g_sliderTrackTex >= 0)
   {
-    int yImg = ((i + 2) == g_createWorldSelectedIdx) ? 2 : 1;
-    drawRealButton(t, textures, font, contentX, rowStartY + rowSpacing * (float)i, btnW, btnH, buttonLabels[i], s, yImg);
+    drawTexQuad(t, g_sliderTrackTex, sliderTrackX, sliderTrackY, sliderTrackW, sliderTrackH, s);
   }
+  else
+  {
+    drawDialogBox(t, sliderTrackX, sliderTrackY, sliderTrackW, sliderTrackH, s, 0.18f, 0.18f, 0.18f, 1.0f, 0.05f, 0.05f, 0.05f);
+  }
+
+  const int difficulty = scene != nullptr ? scene->appleGetDifficulty() : 1;
+  const float knobTravel = (sliderTrackW - sliderButtonW) > 1.0f ? (sliderTrackW - sliderButtonW) : 1.0f;
+  const float knobX = sliderTrackX + knobTravel * ((float)difficulty / 3.0f);
+  if (g_createWorldSelectedIdx == 3)
+  {
+    drawDialogBox(t, sliderTrackX - 3.0f, sliderTrackY - 3.0f, sliderTrackW + 6.0f, sliderTrackH + 6.0f, s, 0.0f, 0.0f, 0.0f, 0.0f, 0.92f, 0.80f, 0.06f);
+  }
+  if (g_sliderButtonTex >= 0)
+  {
+    drawTexQuad(t, g_sliderButtonTex, knobX, sliderY + (38.0f * layoutScale - sliderButtonH) * 0.5f, sliderButtonW, sliderButtonH, s);
+  }
+  else
+  {
+    drawRealButton(t, textures, font, knobX - 4.0f, sliderTrackY - 4.0f, (int)(20.0f * layoutScale), (int)(20.0f * layoutScale), L"", s, g_createWorldSelectedIdx == 3 ? 2 : 1);
+  }
+
+  drawConsoleMenuButton(t, font, contentX, moreOptionsY, contentW, buttonH, buttonLabels[1], s, g_createWorldSelectedIdx == 4);
+  drawConsoleMenuButton(t, font, contentX, createWorldY, contentW, buttonH, buttonLabels[2], s, g_createWorldSelectedIdx == 5);
 
   glEnable(GL_TEXTURE_2D);
   glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
   glPushMatrix();
   glScalef(s, s, 1.0f);
+  font->drawShadow(
+    difficultyLabel,
+    (int)(sliderTrackX + sliderTrackW * 0.5f - (float)font->width(difficultyLabel) * 0.5f),
+    (int)(sliderY + 38.0f * layoutScale * 0.5f - 4.0f),
+    0xFFFFFF);
   if (keyboardActive)
   {
     const wstring hint = L"Enter: Confirm   Esc: Cancel";
