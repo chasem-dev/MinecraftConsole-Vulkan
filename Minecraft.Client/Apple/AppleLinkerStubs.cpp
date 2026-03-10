@@ -646,26 +646,25 @@ static void drawSaveMessageScene(Tesselator *t, Textures *textures, Font *font, 
     drawDialogBox(t, panelX, panelY, panelW, panelH, s, 0.78f, 0.78f, 0.78f, 1.0f, 0.22f, 0.22f, 0.22f);
   }
 
-  const float iconW = 48.0f * layoutScale;
-  const float iconH = 73.0f * layoutScale;
   const float iconX = panelX + 176.0f * layoutScale;
-  const float iconY = panelY + 18.0f * layoutScale;
-  const float iconCX = iconX + iconW * 0.5f;
+  const float iconY = panelY + 14.0f * layoutScale;
 
   auto now = std::chrono::steady_clock::now();
   static auto startTime = now;
   double elapsed = (double)std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
   float arrowBob = (float)std::sin(elapsed / 240.0) * (3.0f * layoutScale);
 
-  if (g_saveArrowTexId >= 0)
-  {
-    const float arrowSz = 16.0f * layoutScale;
-    drawTexQuad(t, g_saveArrowTexId, iconCX - arrowSz * 0.5f, iconY + arrowBob, arrowSz, arrowSz, s);
-  }
+  const float chestSz = 36.0f * layoutScale;
+  const float arrowSz = 24.0f * layoutScale;
+  const float iconCX = panelX + panelW * 0.5f;
+
   if (g_saveChestTexId >= 0)
   {
-    const float chestSz = 24.0f * layoutScale;
-    drawTexQuad(t, g_saveChestTexId, iconCX - chestSz * 0.5f, iconY + 24.0f * layoutScale, chestSz, chestSz, s);
+    drawTexQuad(t, g_saveChestTexId, iconCX - chestSz * 0.5f, iconY + arrowSz - 2.0f * layoutScale, chestSz, chestSz, s);
+  }
+  if (g_saveArrowTexId >= 0)
+  {
+    drawTexQuad(t, g_saveArrowTexId, iconCX - arrowSz * 0.5f, iconY + arrowBob, arrowSz, arrowSz, s);
   }
 
   const float textX = panelX + 25.0f * layoutScale;
@@ -676,7 +675,7 @@ static void drawSaveMessageScene(Tesselator *t, Textures *textures, Font *font, 
       L"This game has a level autosave feature. "
       L"When you see the icon above displayed, "
       L"the game is saving your data. "
-      L"\nPlease do not turn off your console while this icon is on-screen.";
+      L"Please do not turn off or close the game while this icon is on-screen.";
     glEnable(GL_TEXTURE_2D);
     glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
     glPushMatrix();

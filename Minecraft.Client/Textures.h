@@ -257,7 +257,7 @@ public:
 	int loadTexture(int idx);			// 4J added
 	int getTexture(BufferedImage *img, C4JRender::eTextureFormat format = C4JRender::TEXTURE_FORMAT_RxGyBzAw, bool mipmap = true);
     void loadTexture(BufferedImage *img, int id);
-	void loadTexture(BufferedImage *img, int id, bool blur, bool clamp);
+	void loadTexture(BufferedImage *img, int id, bool blur, bool clamp, bool binaryAlpha = false);
 private:
 	intArray anaglyph(intArray rawPixels);
 public:

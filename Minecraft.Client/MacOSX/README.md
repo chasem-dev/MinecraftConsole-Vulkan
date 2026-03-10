@@ -32,7 +32,7 @@ cmake -S . -B build-macos
 ## Build
 
 ```sh
-cmake --build build-macos --target mce_vulkan_boot
+cmake --build build-macos --target mce_vulkan_boot --parallel 10
 ```
 
 ## Run

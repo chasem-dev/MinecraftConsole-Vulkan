@@ -107,6 +107,7 @@ void VulkanBootstrapApp::recreateSwapchain()
   createGraphicsPipeline();
   createFramebuffers();
   createCommandBuffers();
+  setViewportRect(0, 0, swapchainExtent_.width, swapchainExtent_.height);
 }
 
 void VulkanBootstrapApp::cleanupSwapchain()

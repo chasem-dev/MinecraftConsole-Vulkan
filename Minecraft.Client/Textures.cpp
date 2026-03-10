@@ -16,6 +16,24 @@
 #include "../Minecraft.World/net.minecraft.world.h"
 #include "../Minecraft.World/net.minecraft.world.level.h"
 #include "../Minecraft.World/StringHelpers.h"
+
+namespace
+{
+wstring stripLeadingSlash(const wstring& resourceName)
+{
+	if (!resourceName.empty() && resourceName[0] == L'/')
+	{
+		return resourceName.substr(1);
+	}
+	return resourceName;
+}
+
+bool isCloudTextureResource(const wstring& resourceName)
+{
+	return stripLeadingSlash(resourceName) == L"environment/clouds.png";
+}
+}
+
 bool Textures::MIPMAP = true;
 C4JRender::eTextureFormat Textures::TEXTURE_FORMAT = C4JRender::TEXTURE_FORMAT_RxGyBzAw;
 
@@ -336,7 +354,7 @@ void Textures::setTextureFormat(const wstring& resourceName)
 {
 	// 4J Stu - These texture formats are not currently in the render header
 #ifdef _XBOX
-	if(resourceName == L"/environment/clouds.png")
+	if(isCloudTextureResource(resourceName))
 	{
 		TEXTURE_FORMAT = C4JRender::TEXTURE_FORMAT_R1G1B1Ax;
 	}
@@ -417,7 +435,7 @@ int Textures::loadTexture(TEXTURE_NAME texId, const wstring& resourceName)
 	wstring pathName = resourceName;
 
 	// 4J - added special cases to avoid mipmapping on clouds & shadows
-	if( (resourceName == L"environment/clouds.png") ||
+	if( isCloudTextureResource(resourceName) ||
 		(resourceName == L"%clamp%misc/shadow.png") ||
 		(resourceName == L"%blur%misc/pumpkinblur.png") ||
 		(resourceName == L"%clamp%misc/shadow.png") ||
@@ -445,13 +463,14 @@ int Textures::loadTexture(TEXTURE_NAME texId, const wstring& resourceName)
 	//wstring in = skins->getSelected()->getResource(pathName);
 	if (false ) // 4J - removed was ( in == NULL)
 	{
-		loadTexture(missingNo, id, blur, clamp);
+		loadTexture(missingNo, id, blur, clamp, false);
 	}
 	else
 	{
 		// 4J Stu - Get resource above just returns the name for texture packs
 		BufferedImage *bufImage = readImage(texId, pathName); //in);
-		loadTexture(bufImage, id, blur, clamp);
+		const bool binaryAlpha = isCloudTextureResource(resourceName);
+		loadTexture(bufImage, id, blur, clamp, binaryAlpha);
 		delete bufImage;
 	}
 
@@ -487,10 +506,10 @@ void Textures::loadTexture(BufferedImage *img, int id)
 {
 //	printf("Textures::loadTexture BufferedImage %d\n",id);
 
-	loadTexture(img, id, false, false);
+	loadTexture(img, id, false, false, false);
 }
 
-void Textures::loadTexture(BufferedImage *img, int id, bool blur, bool clamp)
+void Textures::loadTexture(BufferedImage *img, int id, bool blur, bool clamp, bool binaryAlpha)
 {
 //	printf("Textures::loadTexture BufferedImage with blur and clamp %d\n",id);
 	int iMipLevels=1;
@@ -548,6 +567,10 @@ void Textures::loadTexture(BufferedImage *img, int id, bool blur, bool clamp)
         int r = (rawPixels[i] >> 16) & 0xff;
         int g = (rawPixels[i] >> 8) & 0xff;
         int b = (rawPixels[i]) & 0xff;
+		if (binaryAlpha && a <= 1)
+		{
+			a = 0;
+		}
 
 #ifdef _XBOX
         newPixels[i * 4 + 0] = (byte) a;
@@ -1403,4 +1426,3 @@ bool Textures::IsOriginalImage(TEXTURE_NAME texId, const wstring& name)
 	}
 	return false;
 }
-
